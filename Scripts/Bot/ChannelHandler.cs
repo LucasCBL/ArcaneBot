@@ -14,6 +14,7 @@ using Stream = TwitchLib.Api.Helix.Models.Streams.GetStreams.Stream;
 using TwitchBot.Scripts.Commands;
 using System.Windows.Input;
 using System.Globalization;
+using TwitchBot.Scripts.Games;
 
 namespace TwitchBot.Scripts.Bot
 {
@@ -46,6 +47,10 @@ namespace TwitchBot.Scripts.Bot
         /// </summary>
         public ChannelHandler(string username, string botID, string botAccessToken, List<string> channelNames)
         {
+            this.username = username;
+            this.botID = botID;
+            this.botAccessToken = botAccessToken;
+            this.channelNames = channelNames;
             using ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole());
 
             // We set up the client to listen and write to the channel chat
@@ -73,7 +78,6 @@ namespace TwitchBot.Scripts.Bot
             ConnectionCredentials credentials = new ConnectionCredentials(username, botAccessToken);
             ClientOptions clientOptions = new();
             WebSocketClient customClient = new WebSocketClient(clientOptions);
-            
             TwitchClient client = new TwitchClient(customClient, ClientProtocol.WebSocket/*, logger: factory.CreateLogger<TwitchClient>()*/);
             client.Initialize(credentials);
             client.Connect();
@@ -85,9 +89,7 @@ namespace TwitchBot.Scripts.Bot
 
             foreach (string channel in channelNames) {
                 channels[channel] = new(client, channel);
-                //joiningChanel = true;
-                //while(joiningChanel)
-                //    await Task.Delay(1000);
+                channels[channel].AddGame(new CoinGame(channels[channel].SendMessage));
             }
         }
 
@@ -164,10 +166,10 @@ namespace TwitchBot.Scripts.Bot
         private void OnMessageReceived(object sender, OnMessageReceivedArgs e)
         {
             Channel channel = channels[e.ChatMessage.Channel.ToLower()];
-            Console.WriteLine("test, " + channel.chanNelName);
             string message = e.ChatMessage.Message;
             if (message[0] == '!')
             {
+                Console.WriteLine("command called: " + message);
                 IBotCommand calledCommand = null;
                 string content = message.Substring(1);
                 string[] args = content.Split(' ');
@@ -180,12 +182,20 @@ namespace TwitchBot.Scripts.Bot
 
                 // If no command is found we return
                 if (calledCommand is null || (!channel.isOffline && !calledCommand.IsOnlineCommand))
+                {
+                    Console.WriteLine("command not found");
                     return;
+                }
+
 
                 calledCommand.Execute(channel, args);
 
             }
-            //channel.SendMessage("im just a bot doing bot stuff, plz ignore me");
+
+            else
+            {
+                channel.CheckActiveGames(e.ChatMessage);
+            }
         }
 
         /// <summary>
