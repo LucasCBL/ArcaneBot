@@ -1,20 +1,23 @@
 ﻿using TwitchBot.Scripts.Bot;
 using TwitchBot.Scripts.Commands;
+using TwitchBot.Scripts.Users;
 
 namespace TwitchBot.Scripts.Games
 {
     internal class GameCommand<Game> : IBotCommand where Game : BaseGame
     {
-        /// <summary>  </summary>
+        /// <inheritdoc/>
         public string CommandKey => commandKey;
-        /// <summary>  </summary>
+        /// <inheritdoc/>
         public int MinArgs => 0;
-        /// <summary>  </summary>
+        /// <inheritdoc/>
         public bool IsOnlineCommand => false;
-        /// <summary>  </summary>
+        /// <inheritdoc/>
         public bool IsModeratorCommand => false;
-
+        /// <inheritdoc/>
         private string commandKey;
+        /// <inheritdoc/>
+        public string HelpInfo => "Chat game, use " + commandKey + " to start a new game";
 
         /// <summary>
         /// Constructor
@@ -30,7 +33,7 @@ namespace TwitchBot.Scripts.Games
         /// </summary>
         /// <param name="channel"></param>
         /// <param name="args"></param>
-        public void Execute(Channel channel, string[] args)
+        public void Execute(User user, Channel channel, string[] args)
         {
             BaseGame game = channel.GetGame<Game>();
             game?.StartGame();

@@ -12,53 +12,86 @@ using TwitchLib.Communication.Models;
 using TwitchLib.Api.Helix.Models.Users.GetUsers;
 using Stream = TwitchLib.Api.Helix.Models.Streams.GetStreams.Stream;
 using TwitchBot.Scripts.Commands;
-using System.Windows.Input;
-using System.Globalization;
 using TwitchBot.Scripts.Games;
+using TwitchBot.Scripts.Users;
+using User = TwitchBot.Scripts.Users.User;
 
 namespace TwitchBot.Scripts.Bot
 {
     /// <summary>
     /// Bot class, main class of the system
     /// </summary>
-    class ChannelHandler
+    class Bot
     {
         // ---------- Constants -------------
+        /// <summary> Bot username </summary>
         private string username;
+        /// <summary> Bot user ID </summary>
         private string botID;
+        /// <summary> Bot access token </summary>
         private string botAccessToken;
-        // TODO: Create channel config files to allow for individual channel commands / games
-        private List<string> channelNames;
-        /// <summary>
-        /// Channel storage
-        /// </summary>
-        Dictionary<string, Channel> channels = new();
 
-        bool isConnected = false;
+        // TODO: Create channel config files to allow for individual channel commands / games
+        /// <summary> Channels that the bot will listen to </summary>
+        private List<string> channelNames;
+
+        /// <summary> Channel storage </summary>
+        private Dictionary<string, Channel> channels = new();
+
+        /// <summary> Database for the bot </summary>
+        private UserDatabase database;
+
+        /// <summary> Whether the bot is connected to twitch or not </summary>
+        private bool isConnected = false;
 
         // ---------- Handlers -------------
-        TwitchAPI api;
+        /// <summary> Twitch API handler </summary>
+        private TwitchAPI api;
 
-        // ---------- Commands -----------
-        List<IBotCommand> commands = new ();
+        /// <summary> All usable commands </summary>
+        private List<IBotCommand> commands = new ();
+
+        /// <summary> Cancellation token source </summary>
+        private CancellationTokenSource tokenSource;
 
         /// <summary>
         /// Constructor
         /// </summary>
-        public ChannelHandler(string username, string botID, string botAccessToken, List<string> channelNames)
+        public Bot(string username, string botID, string botAccessToken, List<string> channelNames, string databasePath)
         {
             this.username = username;
             this.botID = botID;
             this.botAccessToken = botAccessToken;
             this.channelNames = channelNames;
             using ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole());
-
+            tokenSource = new CancellationTokenSource();
             // We set up the client to listen and write to the channel chat
             SetUpClient(factory);
 
             // We setup api, task is discarded because we dont want to wait for result;
             _ = SetupApi(factory);
 
+            database = UserDatabase.LoadDatabase(api, databasePath);
+            AddCommand(new RatDetectionCommand());
+            AddCommand(new GameCommand<CoinGame>("coingame"));
+            AddCommand(new PointsCommand(database));
+            AddCommand(new GivePointsCommand(database));
+            AddCommand(new RouletteCommand());
+            AutoSaveLoop(200000, tokenSource.Token);
+        }
+
+        /// <summary>
+        /// Initiates the autosave loop, which saves the bot data every <paramref name="saveMsDelay"/> miliseconds
+        /// </summary>
+        /// <param name="saveMsDelay"></param>
+        /// <param name="token"></param>
+        private async void AutoSaveLoop(int saveMsDelay, CancellationToken token)
+        {
+            while(!token.IsCancellationRequested)
+            {
+                await Task.Delay(saveMsDelay, token);
+                Save();
+            }
         }
 
         /// <summary>
@@ -68,6 +101,23 @@ namespace TwitchBot.Scripts.Bot
         public void AddCommand(IBotCommand command)
         {
             commands.Add(command);
+        }
+
+        /// <summary>
+        /// Cancels the bot processes and saves everything
+        /// </summary>
+        public void StopBot()
+        {
+            Save();
+            tokenSource.Cancel();
+        }
+
+        /// <summary>
+        /// Saves all relevant data
+        /// </summary>
+        public void Save()
+        {
+            database.SaveDatabase();
         }
 
         /// <summary>
@@ -89,15 +139,25 @@ namespace TwitchBot.Scripts.Bot
 
             foreach (string channel in channelNames) {
                 channels[channel] = new(client, channel);
-                channels[channel].AddGame(new CoinGame(channels[channel].SendMessage));
+                channels[channel].AddGame(new CoinGame(channels[channel].SendMessage, database));
             }
         }
 
+        /// <summary>
+        /// Action called on channel joined
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void OnJoinedChannel(object sender, OnJoinedChannelArgs e)
         {
             Console.WriteLine("joined channel " + e.Channel + " successfully");
         }
 
+        /// <summary>
+        /// Action called once twitch client is connected
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
         private void OnConnected(object sender, OnConnectedArgs e)
         {
             isConnected = true;
@@ -166,6 +226,7 @@ namespace TwitchBot.Scripts.Bot
         private void OnMessageReceived(object sender, OnMessageReceivedArgs e)
         {
             Channel channel = channels[e.ChatMessage.Channel.ToLower()];
+            User user = database.FindOrAddUserByID(e.ChatMessage.UserId, e.ChatMessage.Username);
             string message = e.ChatMessage.Message;
             if (message[0] == '!')
             {
@@ -187,34 +248,13 @@ namespace TwitchBot.Scripts.Bot
                     return;
                 }
 
-
-                calledCommand.Execute(channel, args);
-
+                calledCommand.Execute(user,channel, args);
             }
 
             else
             {
                 channel.CheckActiveGames(e.ChatMessage);
             }
-        }
-
-        /// <summary>
-        /// Query to twitch to find a user using their name, returns user id if found, null otherwise
-        /// </summary>
-        /// <param name="username"></param>
-        /// <returns></returns>
-        public async Task<string> GetUserId(string username)
-        {
-            GetUsersResponse userResponse = await api.Helix.Users.GetUsersAsync(logins: new() { username });
-            foreach (TwitchLib.Api.Helix.Models.Users.GetUsers.User? user in userResponse.Users)
-            {
-                if (user != null)
-                {
-                    return user.Id;
-                }
-            }
-
-            return null;
         }
     }
 }

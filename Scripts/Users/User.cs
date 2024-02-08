@@ -1,24 +1,27 @@
-namespace TwitchBot.Scripts.User
+namespace TwitchBot.Scripts.Users
 {
     /// <summary>
     /// User class, handles its own points and data
     /// </summary>
     public class User
     {
-        /// <summary>
-        /// Returns userId
-        /// </summary>
+        /// <summary> Last known username  </summary>
+        public string name { get; set; }
+
+        /// <summary> Returns userId </summary>
         public string id { get; set; }
 
-        /// <summary>
-        /// Returns current point count
-        /// </summary>
-        public int points { get; private set; } = 10;
+        /// <summary> Returns current point count </summary>
+        public int points { get; set; } = 10;
+
+        /// <summary> list of chores of the user </summary>
+        public List<Chore> chores { get; set; } = new();
 
         /// <summary>
         /// Constructor
         /// </summary>
-        public User() { }
+        public User() {
+        }
 
         /// <summary>
         /// Constructor
@@ -27,6 +30,7 @@ namespace TwitchBot.Scripts.User
         public User(string id) : base()
         {
             this.id = id;
+            this.points = 10;
         }
 
         /// <summary>

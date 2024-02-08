@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TwitchBot.Scripts.Games;
-using TwitchLib.Api.Helix.Models.Users.GetUsers;
+﻿using TwitchBot.Scripts.Games;
+using TwitchBot.Scripts.Utils;
 using TwitchLib.Client;
 using TwitchLib.Client.Events;
 using TwitchLib.Client.Models;
@@ -21,6 +16,11 @@ namespace TwitchBot.Scripts.Bot
         public TwitchClient client;
         /// <summary> game list </summary>
         private List<BaseGame> games = new();
+        /// <summary> max amount of characters per message </summary>
+        public const int CharacterLimit = 500;
+        /// <summary> Min time between messages in current channel, expressed in ms </summary>
+        public const int chatDelay = 500;
+
 
         /// <summary>
         /// Constructor
@@ -49,14 +49,25 @@ namespace TwitchBot.Scripts.Bot
         }
 
         /// <summary>
-        /// 
+        /// Sends a message to the channel
         /// </summary>
         /// <param name="text"></param>
         /// <exception cref="NotImplementedException"></exception>
         public async void SendMessage(string text)
         {
             // TODO: ADD MESASGE QUEUE SO THAT MESSAGES ARE NEVER SKIPPED DUE TO USER ACTIVITY BEING TOO HIGH
-            client.SendMessage(channelName, text);
+            // If message is too long we split it across multiple chats
+            if(text.Length > CharacterLimit) {
+                string[] textArray = StringUtils.SplitByCount(text, CharacterLimit);
+                for(int i = 0; i < textArray.Length; i++)
+                {
+                    client.SendMessage(channelName, textArray[i]);
+                    await Task.Delay(chatDelay);
+                }
+            }
+            // If message is less than character limit we send it all at once
+            else
+                client.SendMessage(channelName, text);
         }
 
         /// <summary>

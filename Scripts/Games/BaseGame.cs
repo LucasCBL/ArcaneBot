@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Threading.Channels;
+using TwitchBot.Scripts.Users;
 using TwitchLib.Client.Models;
 
 namespace TwitchBot.Scripts.Games
@@ -18,6 +19,9 @@ namespace TwitchBot.Scripts.Games
         /// <summary> action invoked whenever a message needs to be sent </summary>
         private Action<string> sendMessage;
 
+        /// <summary> User database reference </summary>
+        protected UserDatabase database;
+
         /// <summary>
         /// Whether or not the game is currently running
         /// </summary>
@@ -26,8 +30,9 @@ namespace TwitchBot.Scripts.Games
         /// <summary>
         /// Constructor
         /// </summary>
-        public BaseGame(Action<string> messageSender) {
+        public BaseGame(Action<string> messageSender, UserDatabase database) {
             sendMessage = messageSender;
+            this.database = database;
         }
 
         /// <summary>
