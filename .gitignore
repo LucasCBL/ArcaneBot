@@ -1,1 +1,5 @@
 Program.cs
+obj/
+Databases/
+bin/
+.vs/
