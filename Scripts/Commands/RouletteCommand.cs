@@ -69,6 +69,8 @@ namespace TwitchBot.Scripts.Commands
                 channel.SendMessage("You have lost " + points + " points PogO");
                 user.RemovePoints(points);
             }
+
+            // TODO REPLY INSTEAD OF MESSAGE
         }
     }
 }

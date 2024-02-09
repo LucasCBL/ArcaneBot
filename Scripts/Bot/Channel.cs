@@ -71,7 +71,18 @@ namespace TwitchBot.Scripts.Bot
         }
 
         /// <summary>
-        /// 
+        /// Sends a message to the channel
+        /// </summary>
+        /// <param name="text"></param>
+        /// <exception cref="NotImplementedException"></exception>
+        public async void SendReply(string text, string replyingTo)
+        {
+            // TODO: ADD MESASGE QUEUE SO THAT MESSAGES ARE NEVER SKIPPED DUE TO USER ACTIVITY BEING TOO HIGH
+            client.SendReply(channelName, replyingTo, text);
+        }
+
+        /// <summary>
+        /// Action called when conencted to channel
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>

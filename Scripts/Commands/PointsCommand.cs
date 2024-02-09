@@ -46,6 +46,7 @@ namespace TwitchBot.Scripts.Commands
             if(args.Length >= 2) {
                 targetUser = await database.GetUserByUsername(args[1]);
             }
+            // TODO REPLY INSTEAD OF MESSAGE
             channel.SendMessage(targetUser.name + " currently has " + targetUser.points + " points");
         }
     }
