@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using TwitchBot.Scripts.Bot;
 using TwitchBot.Scripts.Users;
 using TwitchBot.Scripts.Utils;
+using TwitchLib.Client.Models;
 
 namespace TwitchBot.Scripts.Commands
 {
@@ -14,6 +15,9 @@ namespace TwitchBot.Scripts.Commands
     /// </summary>
     public class RouletteCommand: IBotCommand
     {
+        /// <summary> Message to show the game so as to not confuse chatter </summary>
+        private const string gameIntroMessage = "[Roulette] ";
+
         /// <inheritdoc/>
         public string CommandKey => "roulette";
         /// <inheritdoc/>
@@ -34,43 +38,56 @@ namespace TwitchBot.Scripts.Commands
         }
 
         /// </inheritdoc>
-        public async void Execute(User user, Channel channel, string[] args)
+        public async void Execute(User user, Channel channel, ChatMessage message)
         {
-            int points;
+            int points = -1;
+            string[] args = message.Message.Split();
             string bet = args[1].ToLower();
             bool win = MathUtils.RandomNumber(0, 2) == 1;
+
+            // case: all points
             if (bet == "all")
                 points = user.points;
+            // case: half points
             else if (bet == "half")
                 points = user.points / 2;
+            // case: % of points
             else if (bet[^1] == '%' && float.TryParse(bet[..^1], out float multiplier))
                 points = (int)Math.Floor(user.points * (multiplier / 100f));
-            // We check that the argument is in the correct format
+            // case: int amount of points
             else if (int.TryParse(bet, out int parsedPoints))
                 points = parsedPoints;
-            else
-            {
-                channel.SendMessage("invalid arguments. " + HelpInfo);
+
+            // message handling
+            string result = gameIntroMessage + GenerateResultMessage(user, points, win);
+            channel.SendReply(result, message.Id);
+
+            // if invalid no need to assign points
+            if (points < 0 || points > user.points)
                 return;
-            }
-
-            // If points is less than 0 its an invalid argument
-            if (points < 0)
-                channel.SendMessage("invalid arguments. " + HelpInfo);
-            else if (points > user.points)
-                channel.SendMessage("You do not have enough points PogO");
-            else if (win)
-            {
-                channel.SendMessage("You have won " + points + " points Pog");
+            
+            // points assignment
+            if(win)
                 user.AddPoints(points);
-            }
             else
-            {
-                channel.SendMessage("You have lost " + points + " points PogO");
                 user.RemovePoints(points);
-            }
+        }
 
-            // TODO REPLY INSTEAD OF MESSAGE
+        /// <summary>
+        /// Generates result message
+        /// </summary>
+        /// <param name="user"></param>
+        /// <param name="points"></param>
+        /// <param name="win"></param>
+        /// <returns></returns>
+        private string GenerateResultMessage(User user, int points, bool win)
+        {
+            if (points < 0)
+                return "invalid arguments. " + HelpInfo;
+            else if (points > user.points)
+                return "You do not have enough points PogO";
+            else
+                return "You have " + (win ? $"won {points} points Pog " : $"lost {points} points PogO ") + "new balance: " + user.points;
         }
     }
 }

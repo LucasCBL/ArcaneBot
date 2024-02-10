@@ -141,6 +141,8 @@ namespace TwitchBot.Scripts.Bot
                 channels[channel] = new(client, channel);
                 channels[channel].AddGame(new CoinGame(channels[channel].SendMessage, database));
             }
+
+            OnlineStreamsCheck();
         }
 
         /// <summary>
@@ -180,8 +182,6 @@ namespace TwitchBot.Scripts.Bot
             // We add listeners for changes to stream state
             monitorService.OnStreamOffline += ApiOnStreamOffline;
             monitorService.OnStreamOnline -= ApiOnStreamOnline;
-
-            //OnlineStreamsCheck();
         }
 
         /// <summary>
@@ -244,13 +244,12 @@ namespace TwitchBot.Scripts.Bot
                 // If no command is found we return
                 if (calledCommand is null || (!channel.isOffline && !calledCommand.IsOnlineCommand))
                 {
-                    Console.WriteLine("command not found");
+                    Console.WriteLine("command was not found or not compatible with current channel state");
                     return;
                 }
 
-                calledCommand.Execute(user,channel, args);
+                calledCommand.Execute(user, channel, e.ChatMessage);
             }
-
             else
             {
                 channel.CheckActiveGames(e.ChatMessage);

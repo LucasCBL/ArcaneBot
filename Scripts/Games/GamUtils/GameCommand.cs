@@ -1,6 +1,7 @@
 ﻿using TwitchBot.Scripts.Bot;
 using TwitchBot.Scripts.Commands;
 using TwitchBot.Scripts.Users;
+using TwitchLib.Client.Models;
 
 namespace TwitchBot.Scripts.Games
 {
@@ -33,7 +34,7 @@ namespace TwitchBot.Scripts.Games
         /// </summary>
         /// <param name="channel"></param>
         /// <param name="args"></param>
-        public void Execute(User user, Channel channel, string[] args)
+        public void Execute(User user, Channel channel, ChatMessage message)
         {
             BaseGame game = channel.GetGame<Game>();
             game?.StartGame();

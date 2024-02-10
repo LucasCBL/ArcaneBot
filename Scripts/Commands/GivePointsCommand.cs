@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using TwitchBot.Scripts.Bot;
 using TwitchBot.Scripts.Users;
+using TwitchLib.Client.Models;
 
 namespace TwitchBot.Scripts.Commands
 {
@@ -36,16 +37,16 @@ namespace TwitchBot.Scripts.Commands
         }
 
         /// </inheritdoc>
-        public async void Execute(User user, Channel channel, string[] args)
+        public async void Execute(User user, Channel channel, ChatMessage message)
         {
+            string[] args = message.Message.Split();
             User gifter = user;
-
             User receiver = await database.GetUserByUsername(args[1]);
 
             // If user not found we return
             if(receiver is null)
             {
-                channel.SendMessage("user not found");
+                channel.SendReply("user not found", message.Id);
                 return;
             }
 
@@ -55,17 +56,17 @@ namespace TwitchBot.Scripts.Commands
                 // Points check
                 if(gifter.points < points)
                 {
-                    channel.SendMessage("Awkward you do not have enough points for this " + gifter.name + " you only have " + gifter.points + " points");
+                    channel.SendReply("Awkward you do not have enough points for this " + gifter.name + " you only have " + gifter.points + " points", message.Id);
                     return;
                 }
 
                 gifter.GivePoints(points, receiver);
-                channel.SendMessage("Giving " + points + " points to " + receiver.name);
+                channel.SendReply("Giving " + points + " points to " + receiver.name, message.Id);
                 return;
             }
 
             // if points format is incorrect
-            channel.SendMessage("invalid arguments. " + HelpInfo);
+            channel.SendReply("invalid arguments. " + HelpInfo, message.Id);
         }
     }
 }

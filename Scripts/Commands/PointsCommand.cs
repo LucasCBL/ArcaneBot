@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using TwitchBot.Scripts.Users;
 using TwitchBot.Scripts.Utils;
+using TwitchLib.Client.Models;
 
 namespace TwitchBot.Scripts.Commands
 {
@@ -40,14 +41,20 @@ namespace TwitchBot.Scripts.Commands
         }
 
         /// </inheritdoc>
-        public async void Execute(User user, Channel channel, string[] args)
+        public async void Execute(User user, Channel channel, ChatMessage message)
         {
-            User targetUser = user;
-            if(args.Length >= 2) {
-                targetUser = await database.GetUserByUsername(args[1]);
+            string[] args = message.Message.Split();
+            if(args.Length < 2) {
+                channel.SendReply("You currently have " + user.points + " points", message.Id);
+                return;
             }
-            // TODO REPLY INSTEAD OF MESSAGE
-            channel.SendMessage(targetUser.name + " currently has " + targetUser.points + " points");
+            User targetUser = await database.GetUserByUsername(args[1]);
+            // if user is found
+            if (targetUser != null)
+                channel.SendReply(targetUser.name + " currently has " + targetUser.points + " points", message.Id);
+            // user not found
+            else
+                channel.SendReply("could not find a user with the username " + args[1], message.Id);
         }
     }
 }

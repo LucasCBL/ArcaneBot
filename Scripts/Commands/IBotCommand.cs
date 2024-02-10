@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using TwitchBot.Scripts.Users;
+using TwitchLib.Client.Models;
 
 namespace TwitchBot.Scripts.Commands
 {
@@ -43,6 +44,6 @@ namespace TwitchBot.Scripts.Commands
         /// </summary>
         /// <param name="args"></param>
         /// <param name="channel"></param>
-        void Execute(User user, Channel channel, string[] args);
+        void Execute(User user, Channel channel, ChatMessage message);
     }
 }
