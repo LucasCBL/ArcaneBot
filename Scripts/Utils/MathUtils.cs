@@ -3,7 +3,8 @@ namespace TwitchBot.Scripts.Utils
 {
     internal class MathUtils
     {
-        static readonly Random rand = new();
+        /// <summary> Random number generator, initialized to a random seed </summary>
+        static readonly Random rand = new(Environment.TickCount);
 
         /// <summary>
         /// Returns random number in range

@@ -15,6 +15,8 @@ using TwitchBot.Scripts.Commands;
 using TwitchBot.Scripts.Games;
 using TwitchBot.Scripts.Users;
 using User = TwitchBot.Scripts.Users.User;
+using TwitchBot.Scripts.Utils;
+using TwitchLib.Api.Helix.Models.Moderation.CheckAutoModStatus;
 
 namespace TwitchBot.Scripts.Bot
 {
@@ -23,6 +25,9 @@ namespace TwitchBot.Scripts.Bot
     /// </summary>
     class Bot
     {
+        ///<summary> Help intro constant </summary>
+        private const string helpIntro = "The commands enabled in this channel are: ";
+
         // ---------- Constants -------------
         /// <summary> Bot username </summary>
         private string username;
@@ -228,18 +233,22 @@ namespace TwitchBot.Scripts.Bot
             Channel channel = channels[e.ChatMessage.Channel.ToLower()];
             User user = database.FindOrAddUserByID(e.ChatMessage.UserId, e.ChatMessage.Username);
             string message = e.ChatMessage.Message;
-            if (message[0] == '!')
+            if (message[0] == channel.commandCharacter)
             {
                 Console.WriteLine("command called: " + message);
-                IBotCommand calledCommand = null;
-                string content = message.Substring(1);
-                string[] args = content.Split(' ');
+
+                string[] args = StringUtils.SplitCommand(message[1..]);
                 string commandKey = args[0].ToLower();
-                args[0] = e.ChatMessage.Username;
+
+                if (commandKey == "help")
+                {
+                    Help(channel, user, e.ChatMessage);
+                    return;
+                }
+
+
                 // we find the command in our command list
-                foreach (IBotCommand command in commands)
-                    if(command.CommandKey == commandKey)
-                        calledCommand = command;
+                IBotCommand calledCommand = FindCommand(commandKey);
 
                 // If no command is found we return
                 if (calledCommand is null || (!channel.isOffline && !calledCommand.IsOnlineCommand))
@@ -248,12 +257,64 @@ namespace TwitchBot.Scripts.Bot
                     return;
                 }
 
-                calledCommand.Execute(user, channel, e.ChatMessage);
+                // call command if args are correct, send help info message otherwise
+                if (args.Length > calledCommand.MinArgs)
+                    calledCommand.Execute(user, channel, e.ChatMessage);
+                else
+                    channel.SendReply(calledCommand.HelpInfo(channel), e.ChatMessage);
             }
+            // If input is not a command we check if there are ay active games going on
             else
             {
                 channel.CheckActiveGames(e.ChatMessage);
             }
+        }
+
+        /// <summary>
+        /// Tries to find the command in the command list, returns null otherwise
+        /// </summary>
+        /// <param name="commandKey"></param>
+        /// <returns></returns>
+        private IBotCommand FindCommand(string commandKey)
+        {
+            foreach (IBotCommand command in commands)
+                if (command.CommandKey == commandKey)
+                    return command;
+
+            return null;
+        }
+
+        /// <summary>
+        /// Shows the user the help menu
+        /// </summary>
+        /// <param name="channel"></param>
+        /// <param name="user"></param>
+        /// <param name="chatMessage"></param>
+        /// <exception cref="NotImplementedException"></exception>
+        private void Help(Channel channel, User user, ChatMessage message)
+        {
+            string[] args = StringUtils.SplitCommand(message.Message);
+            // Returns the help menu for the command if any matches the input
+            if(args.Length > 1) {
+                IBotCommand calledCommand = FindCommand(args[1]);
+                // command was not found
+                if(calledCommand == null)
+                {
+                    channel.SendReply($"{args[1]} command not found, to check command list use {channel.commandCharacter}help", message);
+                    return;
+                }
+
+                channel.SendReply(calledCommand.HelpInfo(channel), message);
+                return;
+            }
+
+            string helpMessage = helpIntro + commands[0].CommandKey;
+            // TODO: once channel preference system is implemented update this
+            for (int i = 1; i < commands.Count; i++)
+                helpMessage += ", " + commands[i].CommandKey;
+
+            helpMessage += $". For additional info on a command do {channel.commandCharacter}help <commandName>.";
+            channel.SendReply(helpMessage, message);
         }
     }
 }

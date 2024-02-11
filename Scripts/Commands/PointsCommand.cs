@@ -23,8 +23,6 @@ namespace TwitchBot.Scripts.Commands
         public bool IsOnlineCommand => false;
         /// <inheritdoc/>
         public bool IsModeratorCommand => false;
-        /// <inheritdoc/>
-        public string HelpInfo => "use !points to check your own points and !points <user> to check another user's points";
 
         /// <summary>
         /// User database used to check info
@@ -39,22 +37,25 @@ namespace TwitchBot.Scripts.Commands
         {
             this.database = database;
         }
+        
+        /// <inheritdoc/>
+        public string HelpInfo(Channel channel) => $"use {channel.commandCharacter}points to check your own points and {channel.commandCharacter}points <user> to check another user's points";
 
         /// </inheritdoc>
         public async void Execute(User user, Channel channel, ChatMessage message)
         {
-            string[] args = message.Message.Split();
+            string[] args = StringUtils.SplitCommand(message.Message);
             if(args.Length < 2) {
-                channel.SendReply("You currently have " + user.points + " points", message.Id);
+                channel.SendReply("You currently have " + user.points + " points", message);
                 return;
             }
             User targetUser = await database.GetUserByUsername(args[1]);
             // if user is found
             if (targetUser != null)
-                channel.SendReply(targetUser.name + " currently has " + targetUser.points + " points", message.Id);
+                channel.SendReply(targetUser.name + " currently has " + targetUser.points + " points", message);
             // user not found
             else
-                channel.SendReply("could not find a user with the username " + args[1], message.Id);
+                channel.SendReply("could not find a user with the username " + args[1], message);
         }
     }
 }

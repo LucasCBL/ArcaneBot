@@ -34,8 +34,7 @@ namespace TwitchBot.Scripts.Commands
         /// <summary>
         /// Gives information about the command when calling !help
         /// </summary>
-        string HelpInfo { get; }
-
+        public string HelpInfo(Channel channel);
 
         //TODO: ADD A WAY TO MAKE THE INVALID ARGUMENTS MESSAGE GENERAL ACROSS ALL COMMANDS TO REDUCE BOILER PLATE AND REPETITION
 

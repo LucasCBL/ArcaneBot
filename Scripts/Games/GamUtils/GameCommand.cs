@@ -17,8 +17,6 @@ namespace TwitchBot.Scripts.Games
         public bool IsModeratorCommand => false;
         /// <inheritdoc/>
         private string commandKey;
-        /// <inheritdoc/>
-        public string HelpInfo => "Chat game, use " + commandKey + " to start a new game";
 
         /// <summary>
         /// Constructor
@@ -28,6 +26,9 @@ namespace TwitchBot.Scripts.Games
         {
             this.commandKey = gameCommand;
         }
+
+        /// <inheritdoc/>
+        public string HelpInfo(Channel channel) => "Chat game, use " + channel.commandCharacter + commandKey + " to start a new game";
 
         /// <summary>
         /// Starts the game

@@ -11,7 +11,7 @@ namespace TwitchBot.Scripts.Bot
         /// <summary> Twitch channel name </summary>
         public string channelName;
         /// <summary> allows channel to override default ! character to invoke commands </summary>
-        public string overrideCommandCharacter = null;
+        public char commandCharacter = '!';
         /// <summary> offline status </summary>
         public bool isOffline = true;
         /// <summary> Twitch Client, handles all channel interactions </summary>
@@ -77,10 +77,10 @@ namespace TwitchBot.Scripts.Bot
         /// </summary>
         /// <param name="text"></param>
         /// <exception cref="NotImplementedException"></exception>
-        public async void SendReply(string text, string replyingTo)
+        public async void SendReply(string text, ChatMessage replyingTo)
         {
             // TODO: ADD MESASGE QUEUE SO THAT MESSAGES ARE NEVER SKIPPED DUE TO USER ACTIVITY BEING TOO HIGH
-            client.SendReply(channelName, replyingTo, text);
+            client.SendReply(channelName, replyingTo.Id, text);
         }
 
         /// <summary>

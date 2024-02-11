@@ -26,9 +26,6 @@ namespace TwitchBot.Scripts.Commands
         public bool IsOnlineCommand => false;
         /// <inheritdoc/>
         public bool IsModeratorCommand => false;
-        /// <inheritdoc/>
-        public string HelpInfo => "use !roulette <points> bet your points, there is a 50/50 chance to either double the points or lose them, you can use !roulette <points>% to bet a percentage of your points or use !roulette all or !roulette half to bet all or half of your points";
-
 
         /// <summary>
         /// Constructor
@@ -37,13 +34,17 @@ namespace TwitchBot.Scripts.Commands
         {
         }
 
+        /// <inheritdoc/>
+        public string HelpInfo(Channel channel) => $"use {channel.commandCharacter}roulette <points> bet your points, there is a 50/50 chance to either double the points or lose them, you can use {channel.commandCharacter}roulette <points>% to bet a percentage of your points or use {channel.commandCharacter}roulette all or {channel.commandCharacter}roulette half to bet all or half of your points";
+
         /// </inheritdoc>
         public async void Execute(User user, Channel channel, ChatMessage message)
         {
             int points = -1;
-            string[] args = message.Message.Split();
+            string[] args = StringUtils.SplitCommand(message.Message);
             string bet = args[1].ToLower();
             bool win = MathUtils.RandomNumber(0, 2) == 1;
+            char lastChar = bet[^1]; 
 
             // case: all points
             if (bet == "all")
@@ -51,26 +52,26 @@ namespace TwitchBot.Scripts.Commands
             // case: half points
             else if (bet == "half")
                 points = user.points / 2;
-            // case: % of points
-            else if (bet[^1] == '%' && float.TryParse(bet[..^1], out float multiplier))
-                points = (int)Math.Floor(user.points * (multiplier / 100f));
+            // case: % of points or points expressed as xxx K(as in thousands)
+            else if ((lastChar is '%' or 'k') && float.TryParse(bet[..^1], out float number))
+                points = (int)Math.Floor(lastChar == '%' ? (user.points * (number / 100f)) : (number * 1000));
             // case: int amount of points
             else if (int.TryParse(bet, out int parsedPoints))
                 points = parsedPoints;
 
+            // if invalid no need to assign points
+            if (points > 0 && points <= user.points)
+            {
+                // points assignment
+                if(win)
+                    user.AddPoints(points);
+                else
+                    user.RemovePoints(points);
+            }
+
             // message handling
             string result = gameIntroMessage + GenerateResultMessage(user, points, win);
-            channel.SendReply(result, message.Id);
-
-            // if invalid no need to assign points
-            if (points < 0 || points > user.points)
-                return;
-            
-            // points assignment
-            if(win)
-                user.AddPoints(points);
-            else
-                user.RemovePoints(points);
+            channel.SendReply(result, message);
         }
 
         /// <summary>

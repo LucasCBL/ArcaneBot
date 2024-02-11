@@ -28,5 +28,15 @@ namespace TwitchBot.Scripts.Utils
             result[^1] = input[((splits - 1) * maxCount)..];
             return result;
         }
+
+        /// <summary>
+        /// Just a call to the split command, but centralized here in case custom behaviors are needed in the future
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public static string[] SplitCommand(string input)
+        {
+            return input.Split();
+        }
     }
 }

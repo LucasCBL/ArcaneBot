@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using TwitchBot.Scripts.Bot;
 using TwitchBot.Scripts.Users;
+using TwitchBot.Scripts.Utils;
 using TwitchLib.Client.Models;
 
 namespace TwitchBot.Scripts.Commands
@@ -23,8 +24,6 @@ namespace TwitchBot.Scripts.Commands
         /// <inheritdoc/>
         public bool IsModeratorCommand => false;
         /// <inheritdoc/>
-        public string HelpInfo => "Use !give <user> <points> to give points to <user>";
-        /// <inheritdoc/>
         private UserDatabase database;
 
         /// <summary>
@@ -36,17 +35,20 @@ namespace TwitchBot.Scripts.Commands
             this.database = database;
         }
 
+        /// <inheritdoc/>
+        public string HelpInfo(Channel channel) =>  $"Use {channel.commandCharacter}give <user> <points> to give points to <user>";
+
         /// </inheritdoc>
         public async void Execute(User user, Channel channel, ChatMessage message)
         {
-            string[] args = message.Message.Split();
+            string[] args = StringUtils.SplitCommand(message.Message);
             User gifter = user;
             User receiver = await database.GetUserByUsername(args[1]);
 
             // If user not found we return
             if(receiver is null)
             {
-                channel.SendReply("user not found", message.Id);
+                channel.SendReply("user not found", message);
                 return;
             }
 
@@ -56,17 +58,17 @@ namespace TwitchBot.Scripts.Commands
                 // Points check
                 if(gifter.points < points)
                 {
-                    channel.SendReply("Awkward you do not have enough points for this " + gifter.name + " you only have " + gifter.points + " points", message.Id);
+                    channel.SendReply("Awkward you do not have enough points for this " + gifter.name + " you only have " + gifter.points + " points", message);
                     return;
                 }
 
                 gifter.GivePoints(points, receiver);
-                channel.SendReply("Giving " + points + " points to " + receiver.name, message.Id);
+                channel.SendReply("Giving " + points + " points to " + receiver.name, message);
                 return;
             }
 
             // if points format is incorrect
-            channel.SendReply("invalid arguments. " + HelpInfo, message.Id);
+            channel.SendReply("invalid arguments. " + HelpInfo, message);
         }
     }
 }
