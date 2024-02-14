@@ -81,6 +81,7 @@ namespace TwitchBot.Scripts.Bot
             AddCommand(new GameCommand<CoinGame>("coingame"));
             AddCommand(new PointsCommand(database));
             AddCommand(new GivePointsCommand(database));
+            AddCommand(new PoofCountCommand(database));
             AddCommand(new RouletteCommand());
             AutoSaveLoop(200000, tokenSource.Token);
         }
@@ -233,12 +234,17 @@ namespace TwitchBot.Scripts.Bot
             Channel channel = channels[e.ChatMessage.Channel.ToLower()];
             User user = database.FindOrAddUserByID(e.ChatMessage.UserId, e.ChatMessage.Username);
             string message = e.ChatMessage.Message;
+
+            // if message is a poof call we increment the pof counter
+            if (message == "!poof")
+                user.poofCount++;
+
+            // Command handling
             if (message[0] == channel.commandCharacter)
             {
-                Console.WriteLine("command called: " + message);
-
                 string[] args = StringUtils.SplitCommand(message[1..]);
                 string commandKey = args[0].ToLower();
+                Console.WriteLine("command called: " + message);
 
                 if (commandKey == "help")
                 {

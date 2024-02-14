@@ -17,6 +17,9 @@ namespace TwitchBot.Scripts.Users
         /// <summary> list of chores of the user </summary>
         public List<Chore> chores { get; set; } = new();
 
+        /// <summary> Amount of times a user has poofed </summary>
+        public int poofCount { get; set; } = 0;
+
         /// <summary>
         /// Constructor
         /// </summary>

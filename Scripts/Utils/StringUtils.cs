@@ -38,5 +38,20 @@ namespace TwitchBot.Scripts.Utils
         {
             return input.Split();
         }
+
+        /// <summary>
+        /// Removes the command from
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public static string RemoveCommandFromString(string input)
+        {
+            string[] result = SplitCommand(input);
+            if(result.Length < 2) {
+                Console.WriteLine("Error, emptu string in RemoveCommandFromString");
+                return null;
+            }
+            return input[result[0].Length..];
+        }
     }
 }

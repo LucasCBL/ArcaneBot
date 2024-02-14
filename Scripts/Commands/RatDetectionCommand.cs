@@ -30,11 +30,12 @@ namespace TwitchBot.Scripts.Commands
         /// </inheritdoc>
         public void Execute(User user, Channel channel, ChatMessage message)
         {
-            string[] args = StringUtils.SplitCommand(message.Message);
+            string content = StringUtils.RemoveCommandFromString(message.Message);
+
             if (MathUtils.RandomNumber(0, 100) < 20)
-                channel.SendMessage(args[1] + " IS A SECRET RAT SCATTER");
+                channel.SendMessage(content + " IS A SECRET RAT SCATTER");
             else
-                channel.SendMessage(args[1] + " is not a secret rat OKAY");
+                channel.SendMessage(content + " is not a secret rat OKAY");
         }
     }
 }
