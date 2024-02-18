@@ -73,7 +73,7 @@ namespace TwitchBot.Scripts.Games
             }
 
             foreach(User loser in losers)
-                loser.RemovePoints(loser.points > 10 ? 10: loser.points);
+                loser.RemovePoints(loser.points > 10 ? 10: loser.points, true);
 
             SendMessage(message);
         }

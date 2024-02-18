@@ -14,6 +14,9 @@ namespace TwitchBot.Scripts.Users
         /// <summary> Returns current point count </summary>
         public int points { get; set; } = 10;
 
+        /// <summary> Returns current amount of points lost by gambling </summary>
+        public int pointLoss { get; set; } = 0;
+
         /// <summary> list of chores of the user </summary>
         public List<Chore> chores { get; set; } = new();
 
@@ -52,7 +55,7 @@ namespace TwitchBot.Scripts.Users
         /// Removes points from the user
         /// </summary>
         /// <param name="removedPoints"></param>
-        public void RemovePoints(int removedPoints)
+        public void RemovePoints(int removedPoints, bool gamblingLoss = false)
         {
             if (removedPoints < 0)
                 return;

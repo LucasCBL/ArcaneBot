@@ -149,5 +149,41 @@ namespace TwitchBot.Scripts.Users
 
             return null;
         }
+
+        /// <summary>
+        /// Returns the top 5 users in points
+        /// </summary>
+        public List<User> GetTopPoints()
+        {
+            List<User> ordered = users.OrderByDescending(user => user.points).ToList();
+            return ordered.GetRange(0,5);
+        }
+
+        /// <summary>
+        /// Returns the top 5 users in point loss
+        /// </summary>
+        public List<User> GetTopLosers()
+        {
+            List<User> ordered = users.OrderByDescending(user => user.pointLoss).ToList();
+            return ordered.GetRange(0, 5);
+        }
+
+        /// <summary>
+        /// Returns point rank of the user
+        /// </summary>
+        public int GetUserPointRank(User user)
+        {
+            List<User> ordered = users.OrderByDescending(user => user.points).ToList();
+            return ordered.IndexOf(user);
+        }
+
+        /// <summary>
+        /// Returns point loss rank of the user
+        /// </summary>
+        public int GetUserPointLossRank(User user)
+        {
+            List<User> ordered = users.OrderByDescending(user => user.pointLoss).ToList();
+            return ordered.IndexOf(user);
+        }
     }
 }

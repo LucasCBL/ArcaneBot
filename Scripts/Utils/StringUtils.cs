@@ -53,5 +53,25 @@ namespace TwitchBot.Scripts.Utils
             }
             return input[result[0].Length..];
         }
+
+        /// <summary>
+        /// Turns a list of strings into a string
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public static string GetString(IList<string> input)
+        {
+            if (input is null || input.Count == 0)
+                return string.Empty;
+
+            string message = "";
+            foreach(string str in input)
+            {
+                message += str + ", ";
+            }
+
+            message = message.Remove(message.Length - 2);
+            return message;
+        }
     }
 }

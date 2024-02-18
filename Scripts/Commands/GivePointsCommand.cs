@@ -13,16 +13,18 @@ namespace TwitchBot.Scripts.Commands
     /// <summary>
     /// !guve command, allows a user to give points to another user
     /// </summary>
-    public class GivePointsCommand : IBotCommand
+    public class GivePointsCommand : BaseCommand
     {
         /// <inheritdoc/>
-        public string CommandKey => "give";
+        public override string CommandKey => "give";
         /// <inheritdoc/>
-        public int MinArgs => 2;
+        public override int MinArgs => 2;
         /// <inheritdoc/>
-        public bool IsOnlineCommand => false;
+        public override bool IsOnlineCommand => false;
         /// <inheritdoc/>
-        public bool IsModeratorCommand => false;
+        public override bool IsModeratorCommand => false;
+        /// <inheritdoc/>
+        protected override string[] Aliases { get; set; } = { "send" };
         /// <inheritdoc/>
         private UserDatabase database;
 
@@ -36,10 +38,10 @@ namespace TwitchBot.Scripts.Commands
         }
 
         /// <inheritdoc/>
-        public string HelpInfo(Channel channel) =>  $"Use {channel.commandCharacter}give <user> <points> to give points to <user>";
+        protected override string GetDescription(Channel channel) =>  $"Use {channel.commandCharacter}give <user> <points> to give points to <user>";
 
         /// </inheritdoc>
-        public async void Execute(User user, Channel channel, ChatMessage message)
+        public override async void Execute(User user, Channel channel, ChatMessage message)
         {
             string[] args = StringUtils.SplitCommand(message.Message);
             User gifter = user;

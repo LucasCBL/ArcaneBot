@@ -13,16 +13,18 @@ namespace TwitchBot.Scripts.Commands
     /// <summary>
     /// !points command, used to check how many points a user has
     /// </summary>
-    public class PoofCountCommand : IBotCommand
+    public class PoofCountCommand : BaseCommand
     {
         /// <inheritdoc/>
-        public string CommandKey => "poofcount";
+        public override string CommandKey => "poofcount";
         /// <inheritdoc/>
-        public int MinArgs => 0;
+        public override int MinArgs => 0;
         /// <inheritdoc/>
-        public bool IsOnlineCommand => true;
+        public override bool IsOnlineCommand => true;
         /// <inheritdoc/>
-        public bool IsModeratorCommand => false;
+        public override bool IsModeratorCommand => false;
+        /// <inheritdoc/>
+        protected override string[] Aliases { get; set; }
 
         /// <summary>
         /// User database used to check info
@@ -39,10 +41,10 @@ namespace TwitchBot.Scripts.Commands
         }
 
         /// <inheritdoc/>
-        public string HelpInfo(Channel channel) => $"use {channel.commandCharacter}poofCount to check the amount of poofs you have used and {channel.commandCharacter}poofCount <user> to check another user's poofs";
+        protected override string GetDescription(Channel channel) => $"use {channel.commandCharacter}poofCount to check the amount of poofs you have used and {channel.commandCharacter}poofCount <user> to check another user's poofs";
 
         /// </inheritdoc>
-        public async void Execute(User user, Channel channel, ChatMessage message)
+        public override async void Execute(User user, Channel channel, ChatMessage message)
         {
             string[] args = StringUtils.SplitCommand(message.Message);
             if (args.Length < 2)

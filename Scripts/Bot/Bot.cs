@@ -18,6 +18,7 @@ using User = TwitchBot.Scripts.Users.User;
 using TwitchBot.Scripts.Utils;
 using TwitchLib.Api.Helix.Models.Moderation.CheckAutoModStatus;
 using TwitchBot.Scripts.Games.GameUtils;
+using System.Windows.Input;
 
 namespace TwitchBot.Scripts.Bot
 {
@@ -88,13 +89,16 @@ namespace TwitchBot.Scripts.Bot
             triviaDatabase = GameDatabase<Trivia>.LoadDatabase(triviaDatabasePath);
 
             AddCommand(new RatDetectionCommand());
+            AddCommand(new RouletteCommand());
             AddCommand(new GameCommand<CoinGame>("coingame"));
             AddCommand(new GameCommand<ScrambleGame>("scramble"));
             AddCommand(new GameCommand<TriviaGame>("trivia"));
             AddCommand(new PointsCommand(database));
             AddCommand(new GivePointsCommand(database));
             AddCommand(new PoofCountCommand(database));
-            AddCommand(new RouletteCommand());
+            AddCommand(new TopCommand(database));
+            AddCommand(new TopLosersCommand(database));
+            AddCommand(new RankCommand(database));
             AutoSaveLoop(200000, tokenSource.Token);
         }
 
@@ -287,7 +291,7 @@ namespace TwitchBot.Scripts.Bot
                 }
 
                 // we find the command in our command list
-                IBotCommand calledCommand = FindCommand(commandKey);
+                IBotCommand calledCommand = FindCommand(channel, commandKey);
                 // If no command is found we return
                 if (calledCommand is null || (!channel.isOffline && !calledCommand.IsOnlineCommand))
                 {
@@ -313,11 +317,14 @@ namespace TwitchBot.Scripts.Bot
         /// </summary>
         /// <param name="commandKey"></param>
         /// <returns></returns>
-        private IBotCommand FindCommand(string commandKey)
+        private IBotCommand FindCommand(Channel channel, string commandKey)
         {
             foreach (IBotCommand command in commands)
-                if (command.CommandKey == commandKey)
+            {
+                List<string> aliases = command.GetAliases(channel);
+                if (command.CommandKey == commandKey || (aliases is not null  && aliases.Contains(commandKey)))
                     return command;
+            }
 
             return null;
         }
@@ -340,15 +347,16 @@ namespace TwitchBot.Scripts.Bot
                 string modCommandsMessage = "Mod commands are: ";
                 for (int i = 1; i < commands.Count; i++)
                     if (commands[i].IsModeratorCommand)
-                        modCommandsMessage += " " + commands[i].CommandKey;
+                        modCommandsMessage += " " + commands[i].CommandKey + ",";
 
+                modCommandsMessage = modCommandsMessage.Remove(modCommandsMessage.Length - 1);
                 channel.SendReply(modCommandsMessage, message);
                 return;
             }
 
             // Returns the help menu for the command if any matches the input
             if (args.Length > 1 && !modHelp) {                    
-                IBotCommand calledCommand = FindCommand(args[1]);
+                IBotCommand calledCommand = FindCommand(channel, args[1]);
                 // command was not found
                 if(calledCommand == null)
                 {
@@ -365,8 +373,9 @@ namespace TwitchBot.Scripts.Bot
             for (int i = 0; i < commands.Count; i++)
             {
                 if (!commands[i].IsModeratorCommand || (!channel.isOffline && !commands[i].IsOnlineCommand))
-                    helpMessage += " " + commands[i].CommandKey;
+                    helpMessage += " " + commands[i].CommandKey + ",";
             }
+            helpMessage = helpMessage.Remove(helpMessage.Length - 1);
 
             helpMessage += $". For additional info on a command do {channel.commandCharacter}help <commandName> or {channel.commandCharacter}help mods for mod commands";
             channel.SendReply(helpMessage, message);

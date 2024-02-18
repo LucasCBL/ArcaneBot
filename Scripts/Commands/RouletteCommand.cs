@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using TwitchBot.Scripts.Bot;
+﻿using TwitchBot.Scripts.Bot;
 using TwitchBot.Scripts.Users;
 using TwitchBot.Scripts.Utils;
 using TwitchLib.Client.Models;
@@ -13,19 +8,21 @@ namespace TwitchBot.Scripts.Commands
     /// <summary>
     /// !Roulette <points> command, made so gamba addicts can lose their points
     /// </summary>
-    public class RouletteCommand: IBotCommand
+    public class RouletteCommand: BaseCommand
     {
         /// <summary> Message to show the game so as to not confuse chatter </summary>
         private const string gameIntroMessage = "[Roulette] ";
 
         /// <inheritdoc/>
-        public string CommandKey => "roulette";
+        public override string CommandKey => "roulette";
         /// <inheritdoc/>
-        public int MinArgs => 1;
+        public override int MinArgs => 1;
         /// <inheritdoc/>
-        public bool IsOnlineCommand => false;
+        public override bool IsOnlineCommand => false;
         /// <inheritdoc/>
-        public bool IsModeratorCommand => false;
+        public override bool IsModeratorCommand => false;
+        /// <inheritdoc/>
+        protected override string[] Aliases { get; set; } = { "gamba", "bet" };
 
         /// <summary>
         /// Constructor
@@ -35,10 +32,10 @@ namespace TwitchBot.Scripts.Commands
         }
 
         /// <inheritdoc/>
-        public string HelpInfo(Channel channel) => $"use {channel.commandCharacter}roulette <points> bet your points, there is a 50/50 chance to either double the points or lose them, you can use {channel.commandCharacter}roulette <points>% to bet a percentage of your points or use {channel.commandCharacter}roulette all or {channel.commandCharacter}roulette half to bet all or half of your points";
+        protected override string GetDescription(Channel channel) => $"use {channel.commandCharacter}roulette <points> bet your points, there is a 50/50 chance to either double the points or lose them, you can use {channel.commandCharacter}roulette <points>% to bet a percentage of your points or use {channel.commandCharacter}roulette all or {channel.commandCharacter}roulette half to bet all or half of your points";
 
         /// </inheritdoc>
-        public async void Execute(User user, Channel channel, ChatMessage message)
+        public override async void Execute(User user, Channel channel, ChatMessage message)
         {
             int points = -1;
             string[] args = StringUtils.SplitCommand(message.Message);
@@ -67,7 +64,7 @@ namespace TwitchBot.Scripts.Commands
                 if(win)
                     user.AddPoints(points);
                 else
-                    user.RemovePoints(points);
+                    user.RemovePoints(points, true);
             }
 
             // message handling

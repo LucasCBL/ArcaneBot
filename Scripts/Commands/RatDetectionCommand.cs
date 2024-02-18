@@ -8,16 +8,18 @@ namespace TwitchBot.Scripts.Commands
     /// <summary>
     /// Was made as a test command, its an inside joke
     /// </summary>
-    public class RatDetectionCommand : IBotCommand
+    public class RatDetectionCommand : BaseCommand
     {
         /// <inheritdoc/>
-        public string CommandKey => "ratdetection";
+        public override string CommandKey => "ratdetection";
         /// <inheritdoc/>
-        public int MinArgs => 1;
+        public override int MinArgs => 1;
         /// <inheritdoc/>
-        public bool IsOnlineCommand => false;
+        public override bool IsOnlineCommand => false;
         /// <inheritdoc/>
-        public bool IsModeratorCommand => false;
+        public override bool IsModeratorCommand => false;
+        /// <inheritdoc/>
+        protected override string[] Aliases { get; set; } = { "rat" };
 
         public RatDetectionCommand()
         {
@@ -25,10 +27,10 @@ namespace TwitchBot.Scripts.Commands
         }
 
         /// <inheritdoc/>
-        public string HelpInfo(Channel channel) => $"use {channel.commandCharacter}ratDetection <username> to check if someone is a rat ";
+        protected override string GetDescription(Channel channel) => $"use {channel.commandCharacter}ratDetection <username> to check if someone is a rat ";
 
         /// </inheritdoc>
-        public void Execute(User user, Channel channel, ChatMessage message)
+        public override void Execute(User user, Channel channel, ChatMessage message)
         {
             string content = StringUtils.RemoveCommandFromString(message.Message);
 

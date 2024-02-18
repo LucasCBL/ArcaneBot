@@ -1,9 +1,4 @@
 ﻿using TwitchBot.Scripts.Bot;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TwitchBot.Scripts.Users;
 using TwitchBot.Scripts.Utils;
 using TwitchLib.Client.Models;
@@ -13,16 +8,18 @@ namespace TwitchBot.Scripts.Commands
     /// <summary>
     /// !points command, used to check how many points a user has
     /// </summary>
-    public class PointsCommand : IBotCommand
+    public class PointsCommand : BaseCommand
     {
         /// <inheritdoc/>
-        public string CommandKey => "points";
+        public override string CommandKey => "points";
         /// <inheritdoc/>
-        public int MinArgs => 0;
+        public override int MinArgs => 0;
         /// <inheritdoc/>
-        public bool IsOnlineCommand => false;
+        public override bool IsOnlineCommand => false;
         /// <inheritdoc/>
-        public bool IsModeratorCommand => false;
+        public override bool IsModeratorCommand => false;
+        /// <inheritdoc/>
+        protected override string[] Aliases { get; set; } = { "balance", "bal" };
 
         /// <summary>
         /// User database used to check info
@@ -37,12 +34,12 @@ namespace TwitchBot.Scripts.Commands
         {
             this.database = database;
         }
-        
+
         /// <inheritdoc/>
-        public string HelpInfo(Channel channel) => $"use {channel.commandCharacter}points to check your own points and {channel.commandCharacter}points <user> to check another user's points";
+        protected override string GetDescription(Channel channel) => $"use {channel.commandCharacter}points to check your own points and {channel.commandCharacter}points <user> to check another user's points";
 
         /// </inheritdoc>
-        public async void Execute(User user, Channel channel, ChatMessage message)
+        public override async void Execute(User user, Channel channel, ChatMessage message)
         {
             string[] args = StringUtils.SplitCommand(message.Message);
             if(args.Length < 2) {

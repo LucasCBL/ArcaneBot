@@ -1,9 +1,4 @@
 ﻿using TwitchBot.Scripts.Bot;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TwitchBot.Scripts.Users;
 using TwitchLib.Client.Models;
 
@@ -35,6 +30,13 @@ namespace TwitchBot.Scripts.Commands
         /// Gives information about the command when calling !help
         /// </summary>
         public string HelpInfo(Channel channel);
+
+        /// <summary>
+        /// Returns all alternative names for this channel
+        /// </summary>
+        /// <param name="channel"></param>
+        /// <returns></returns>
+        public List<string> GetAliases(Channel channel);
 
         //TODO: ADD A WAY TO MAKE THE INVALID ARGUMENTS MESSAGE GENERAL ACROSS ALL COMMANDS TO REDUCE BOILER PLATE AND REPETITION
 
