@@ -36,7 +36,7 @@ namespace TwitchBot.Scripts.Utils
         /// <returns></returns>
         public static string[] SplitCommand(string input)
         {
-            return input.Split();
+            return input.Split().Where(x => !string.IsNullOrWhiteSpace(x)).ToArray();
         }
 
         /// <summary>

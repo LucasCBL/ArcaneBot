@@ -11,7 +11,7 @@ namespace TwitchBot.Scripts.Bot
         /// <summary> Twitch channel name </summary>
         public string channelName;
         /// <summary> allows channel to override default ! character to invoke commands </summary>
-        public char commandCharacter = '!';
+        public char commandCharacter = '#';
         /// <summary> offline status </summary>
         public bool isOffline = true;
         /// <summary> Twitch Client, handles all channel interactions </summary>

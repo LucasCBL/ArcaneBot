@@ -17,6 +17,7 @@ using TwitchBot.Scripts.Users;
 using User = TwitchBot.Scripts.Users.User;
 using TwitchBot.Scripts.Utils;
 using TwitchLib.Api.Helix.Models.Moderation.CheckAutoModStatus;
+using TwitchBot.Scripts.Games.GameUtils;
 
 namespace TwitchBot.Scripts.Bot
 {
@@ -46,6 +47,12 @@ namespace TwitchBot.Scripts.Bot
         /// <summary> Database for the bot </summary>
         private UserDatabase database;
 
+        /// <summary> Database for the bot </summary>
+        private GameDatabase<string> scrambleDatabase;
+
+        /// <summary> Database for the bot </summary>
+        private GameDatabase<Trivia> triviaDatabase;
+
         /// <summary> Whether the bot is connected to twitch or not </summary>
         private bool isConnected = false;
 
@@ -62,7 +69,7 @@ namespace TwitchBot.Scripts.Bot
         /// <summary>
         /// Constructor
         /// </summary>
-        public Bot(string username, string botID, string botAccessToken, List<string> channelNames, string databasePath)
+        public Bot(string username, string botID, string botAccessToken, List<string> channelNames, string databasePath, string scrambleDatabasePath, string triviaDatabasePath)
         {
             this.username = username;
             this.botID = botID;
@@ -77,8 +84,13 @@ namespace TwitchBot.Scripts.Bot
             _ = SetupApi(factory);
 
             database = UserDatabase.LoadDatabase(api, databasePath);
+            scrambleDatabase = GameDatabase<string>.LoadDatabase(scrambleDatabasePath);
+            triviaDatabase = GameDatabase<Trivia>.LoadDatabase(triviaDatabasePath);
+
             AddCommand(new RatDetectionCommand());
             AddCommand(new GameCommand<CoinGame>("coingame"));
+            AddCommand(new GameCommand<ScrambleGame>("scramble"));
+            AddCommand(new GameCommand<TriviaGame>("trivia"));
             AddCommand(new PointsCommand(database));
             AddCommand(new GivePointsCommand(database));
             AddCommand(new PoofCountCommand(database));
@@ -146,6 +158,8 @@ namespace TwitchBot.Scripts.Bot
             foreach (string channel in channelNames) {
                 channels[channel] = new(client, channel);
                 channels[channel].AddGame(new CoinGame(channels[channel].SendMessage, database));
+                channels[channel].AddGame(new ScrambleGame(channels[channel].SendMessage, database, scrambleDatabase));
+                channels[channel].AddGame(new TriviaGame(channels[channel].SendMessage, database, triviaDatabase));
             }
 
             OnlineStreamsCheck();
@@ -184,10 +198,23 @@ namespace TwitchBot.Scripts.Bot
 
             LiveStreamMonitorService monitorService = new(api);
             monitorService.SetChannelsByName(channelNames);
-
+            monitorService.Start();
             // We add listeners for changes to stream state
+            monitorService.OnStreamUpdate += UpdateStreamsOnlineStatus;
             monitorService.OnStreamOffline += ApiOnStreamOffline;
             monitorService.OnStreamOnline -= ApiOnStreamOnline;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        /// <exception cref="NotImplementedException"></exception>
+        private void UpdateStreamsOnlineStatus(object? sender, OnStreamUpdateArgs args)
+        {
+            Console.WriteLine(" ---------------------- updating channel info: " + args.Channel + " -----------------------");
+            channels[args.Channel.ToLower()].isOffline = false;
         }
 
         /// <summary>
@@ -197,6 +224,7 @@ namespace TwitchBot.Scripts.Bot
         /// <param name="args"></param>
         private void ApiOnStreamOffline(object source, OnStreamOfflineArgs args)
         {
+            Console.WriteLine("--------- " + args.Channel + "is now offline -------------------------");
             channels[args.Channel.ToLower()].isOffline = true;
         }
 
@@ -207,6 +235,7 @@ namespace TwitchBot.Scripts.Bot
         /// <param name="args"></param>
         private void ApiOnStreamOnline(object source, OnStreamOnlineArgs args)
         {
+            Console.WriteLine("--------- " + args.Channel + " is now online --------------");
             channels[args.Channel.ToLower()].isOffline = false;
         }
 
@@ -217,6 +246,9 @@ namespace TwitchBot.Scripts.Bot
         public async void OnlineStreamsCheck()
         {
             GetStreamsResponse streams = await api.Helix.Streams.GetStreamsAsync(userIds: channelNames, userLogins: channelNames);
+           
+            foreach (string channel in channels.Keys)
+                channels[channel].isOffline = true;
             
             // We add each online stream to the list of online streams.
             foreach (Stream onlineStream in streams.Streams)
@@ -243,6 +275,8 @@ namespace TwitchBot.Scripts.Bot
             if (message[0] == channel.commandCharacter)
             {
                 string[] args = StringUtils.SplitCommand(message[1..]);
+                if (args.Length == 0)
+                    return;
                 string commandKey = args[0].ToLower();
                 Console.WriteLine("command called: " + message);
 
@@ -252,10 +286,8 @@ namespace TwitchBot.Scripts.Bot
                     return;
                 }
 
-
                 // we find the command in our command list
                 IBotCommand calledCommand = FindCommand(commandKey);
-
                 // If no command is found we return
                 if (calledCommand is null || (!channel.isOffline && !calledCommand.IsOnlineCommand))
                 {
@@ -300,8 +332,22 @@ namespace TwitchBot.Scripts.Bot
         private void Help(Channel channel, User user, ChatMessage message)
         {
             string[] args = StringUtils.SplitCommand(message.Message);
+            bool modHelp = args.Length > 1 ? args[1] == "mods" : false;
+
+            // Mod exclusive command list
+            if(modHelp)
+            {
+                string modCommandsMessage = "Mod commands are: ";
+                for (int i = 1; i < commands.Count; i++)
+                    if (commands[i].IsModeratorCommand)
+                        modCommandsMessage += " " + commands[i].CommandKey;
+
+                channel.SendReply(modCommandsMessage, message);
+                return;
+            }
+
             // Returns the help menu for the command if any matches the input
-            if(args.Length > 1) {
+            if (args.Length > 1 && !modHelp) {                    
                 IBotCommand calledCommand = FindCommand(args[1]);
                 // command was not found
                 if(calledCommand == null)
@@ -310,17 +356,43 @@ namespace TwitchBot.Scripts.Bot
                     return;
                 }
 
-                channel.SendReply(calledCommand.HelpInfo(channel), message);
+                channel.SendReply(calledCommand.HelpInfo(channel) + $" [Online compatible: {calledCommand.IsOnlineCommand.ToString().ToLower()}]", message);
                 return;
             }
 
-            string helpMessage = helpIntro + commands[0].CommandKey;
+            string helpMessage = helpIntro;
             // TODO: once channel preference system is implemented update this
-            for (int i = 1; i < commands.Count; i++)
-                helpMessage += ", " + commands[i].CommandKey;
+            for (int i = 0; i < commands.Count; i++)
+            {
+                if (!commands[i].IsModeratorCommand || (!channel.isOffline && !commands[i].IsOnlineCommand))
+                    helpMessage += " " + commands[i].CommandKey;
+            }
 
-            helpMessage += $". For additional info on a command do {channel.commandCharacter}help <commandName>.";
+            helpMessage += $". For additional info on a command do {channel.commandCharacter}help <commandName> or {channel.commandCharacter}help mods for mod commands";
             channel.SendReply(helpMessage, message);
+        }
+
+        /// <summary>
+        /// Shows all online channels in console, not in chat
+        /// </summary>
+        /// <exception cref="NotImplementedException"></exception>
+        public void CheckOnlineChannels()
+        {
+            foreach (KeyValuePair<string, Channel> channel in channels)
+            {
+                Console.WriteLine(channel.Key + " is " + (channel.Value.isOffline ? "offline" : "online"));
+            }
+        }
+
+        /// <summary>
+        /// Reloads all databases to reflect manual changes
+        /// </summary>
+        /// <exception cref="NotImplementedException"></exception>
+        public void ReloadDatabases()
+        {
+            database.ReloadDatabase();
+            scrambleDatabase.ReloadDatabase();
+            triviaDatabase.ReloadDatabase();
         }
     }
 }

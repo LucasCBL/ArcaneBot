@@ -7,11 +7,11 @@ namespace TwitchBot.Scripts.Games
 {
     public abstract class BaseGame
     {
+        /// <summary> Name of the game used for messages </summary>
+        public string gameId;
+
         /// <summary> Maximum duration of the game, once  </summary>
         public int maxDuration = 60;
-
-        /// <summary> Message called when game is not completed after maxDuration ends </summary>
-        public string timeoutMessage;
         
         /// <summary> Cancellation token source, serves as the internal identifier for the instance of the game </summary>
         protected CancellationTokenSource cancellationTokenSource;
@@ -59,6 +59,9 @@ namespace TwitchBot.Scripts.Games
         /// </summary>
         public virtual void StartGame()
         {
+            if (IsRunning)
+                return;
+            
             cancellationTokenSource = new CancellationTokenSource();
             StartTimedCancel(cancellationTokenSource.Token);
             IsRunning = true;
@@ -75,7 +78,7 @@ namespace TwitchBot.Scripts.Games
         /// <summary>
         /// Finishes game
         /// </summary>
-        private void EndGame()
+        protected void EndGame()
         {
             IsRunning = false;
             cancellationTokenSource.Cancel();
@@ -90,7 +93,7 @@ namespace TwitchBot.Scripts.Games
         public async void StartTimedWarning(string warning, int timer, CancellationToken token)
         {
             // We wait for max duration before cancelling game
-            await Task.Delay(1000 * timer, token);
+            await Task.Delay(1000 * timer);
 
             // If cancelled we return
             if (token.IsCancellationRequested)
@@ -106,7 +109,7 @@ namespace TwitchBot.Scripts.Games
         /// <param name="message"></param>
         protected void SendMessage(string message) 
         {
-            sendMessage.Invoke(message);
+            sendMessage.Invoke($"[{gameId}] " + message);
         }
 
         /// <summary>
@@ -116,7 +119,7 @@ namespace TwitchBot.Scripts.Games
         public async void StartTimedCancel(CancellationToken token)
         {
             // We wait for max duration before cancelling game
-            await Task.Delay(1000 * maxDuration, token);
+            await Task.Delay(1000 * maxDuration);
             
             // Return if game instance is cancelled
             if (token.IsCancellationRequested)

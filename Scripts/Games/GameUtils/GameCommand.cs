@@ -38,6 +38,11 @@ namespace TwitchBot.Scripts.Games
         public void Execute(User user, Channel channel, ChatMessage message)
         {
             BaseGame game = channel.GetGame<Game>();
+            if (game.IsRunning)
+            {
+                channel.SendMessage($"[{CommandKey}] is already running");
+                return;
+            }
             game?.StartGame();
         }
     }

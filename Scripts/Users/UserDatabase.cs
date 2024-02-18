@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text.Json;
 using TwitchLib.Api;
@@ -31,9 +32,12 @@ namespace TwitchBot.Scripts.Users
             string text = File.ReadAllText(path);
 
             UserDatabase database = new(); 
-            database.users = new(JsonSerializer.Deserialize<List<User>>(text));
+            database.users = JsonSerializer.Deserialize<List<User>>(text);
             if (database.users is null)
+            {
                 Console.WriteLine("INVALID DATABASE");
+                throw new NullReferenceException("INVALID DATABASE");
+            }
             database.api = api;
             database.userFilePath = path;
             return database;
@@ -49,6 +53,24 @@ namespace TwitchBot.Scripts.Users
             Console.WriteLine($"saving to: {path}");
             string text = JsonSerializer.Serialize(users);
             File.WriteAllText(path, text);
+        }
+
+        /// <summary>
+        /// reloads the database from userfilepath)
+        /// </summary>
+        /// <param name="path"></param>
+        public void ReloadDatabase()
+        {
+            string text = File.ReadAllText(userFilePath);
+
+            var users = JsonSerializer.Deserialize<List<User>>(text);
+            if (users is null)
+            {
+                Console.WriteLine("INVALID DATABASE");
+                throw new NullReferenceException("INVALID DATABASE");
+            }
+            Console.WriteLine($"loading : {userFilePath}");
+            this.users = users;
         }
 
         /// <summary>
@@ -113,7 +135,10 @@ namespace TwitchBot.Scripts.Users
         /// <returns></returns>
         private async Task<string> GetUserId(string username)
         {
-            GetUsersResponse userResponse = await api.Helix.Users.GetUsersAsync(logins: new() { username });
+            string filteredUsername = username;
+            if (username[0] == '@')
+                filteredUsername = username.Substring(1);
+            GetUsersResponse userResponse = await api.Helix.Users.GetUsersAsync(logins: new() { filteredUsername });
             foreach (TwitchLib.Api.Helix.Models.Users.GetUsers.User? user in userResponse.Users)
             {
                 if (user != null)

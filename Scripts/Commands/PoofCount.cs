@@ -20,7 +20,7 @@ namespace TwitchBot.Scripts.Commands
         /// <inheritdoc/>
         public int MinArgs => 0;
         /// <inheritdoc/>
-        public bool IsOnlineCommand => false;
+        public bool IsOnlineCommand => true;
         /// <inheritdoc/>
         public bool IsModeratorCommand => false;
 

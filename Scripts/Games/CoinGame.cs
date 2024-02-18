@@ -23,6 +23,7 @@ namespace TwitchBot.Scripts.Games
         /// <param name="messageSender"></param>
         public CoinGame(Action<string> messageSender, UserDatabase database) : base(messageSender, database) {
             maxDuration = 20;
+            gameId = "coingame";
         }
 
         ///<inheritdoc></inheritdoc>

@@ -45,22 +45,23 @@ namespace TwitchBot.Scripts.Commands
             string bet = args[1].ToLower();
             bool win = MathUtils.RandomNumber(0, 2) == 1;
             char lastChar = bet[^1]; 
+            int userPoints = user.points;
 
             // case: all points
             if (bet == "all")
-                points = user.points;
+                points = userPoints;
             // case: half points
             else if (bet == "half")
-                points = user.points / 2;
+                points = userPoints / 2;
             // case: % of points or points expressed as xxx K(as in thousands)
             else if ((lastChar is '%' or 'k') && float.TryParse(bet[..^1], out float number))
-                points = (int)Math.Floor(lastChar == '%' ? (user.points * (number / 100f)) : (number * 1000));
+                points = (int)Math.Floor(lastChar == '%' ? (userPoints * (number / 100f)) : (number * 1000));
             // case: int amount of points
             else if (int.TryParse(bet, out int parsedPoints))
                 points = parsedPoints;
 
             // if invalid no need to assign points
-            if (points > 0 && points <= user.points)
+            if (points > 0 && points <= userPoints)
             {
                 // points assignment
                 if(win)
@@ -70,7 +71,7 @@ namespace TwitchBot.Scripts.Commands
             }
 
             // message handling
-            string result = gameIntroMessage + GenerateResultMessage(user, points, win);
+            string result = gameIntroMessage + GenerateResultMessage(user, userPoints, points, win);
             channel.SendReply(result, message);
         }
 
@@ -81,11 +82,11 @@ namespace TwitchBot.Scripts.Commands
         /// <param name="points"></param>
         /// <param name="win"></param>
         /// <returns></returns>
-        private string GenerateResultMessage(User user, int points, bool win)
+        private string GenerateResultMessage(User user,int userPoints, int points, bool win)
         {
             if (points < 0)
                 return "invalid arguments. " + HelpInfo;
-            else if (points > user.points)
+            else if (points > userPoints)
                 return "You do not have enough points PogO";
             else
                 return "You have " + (win ? $"won {points} points Pog " : $"lost {points} points PogO ") + "new balance: " + user.points;
