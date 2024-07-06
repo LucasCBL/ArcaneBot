@@ -1,6 +1,6 @@
-using System;
-using System.IO;
+
 using System.Text.Json;
+using TwitchBot.Scripts.Bot;
 using TwitchLib.Api;
 using TwitchLib.Api.Helix.Models.Users.GetUsers;
 namespace TwitchBot.Scripts.Users
@@ -118,13 +118,17 @@ namespace TwitchBot.Scripts.Users
         /// <returns></returns>
         public async Task<User> GetUserByUsername(string username)
         {
-            string userId = await GetUserId(username);
+            string filteredUsername = username.Replace(".", string.Empty);
+            if (username[0] == '@')
+                filteredUsername = username.Substring(1);
+
+            string userId = await GetUserId(filteredUsername);
             if (userId is null)
                 return null;
 
             User user = FindOrAddUserByID(userId);
             // We always update the username, since chatters keep changing it and it may be useful
-            user.name = username;
+            user.name = filteredUsername;
             return user;
         }
 
@@ -133,57 +137,106 @@ namespace TwitchBot.Scripts.Users
         /// </summary>
         /// <param name="username"></param>
         /// <returns></returns>
-        private async Task<string> GetUserId(string username)
+        public async Task<string> GetUserId(string username)
         {
-            string filteredUsername = username;
-            if (username[0] == '@')
-                filteredUsername = username.Substring(1);
-            GetUsersResponse userResponse = await api.Helix.Users.GetUsersAsync(logins: new() { filteredUsername });
-            foreach (TwitchLib.Api.Helix.Models.Users.GetUsers.User? user in userResponse.Users)
+            if (string.IsNullOrWhiteSpace(username))
+                return null;
+            try
             {
-                if (user != null)
+                GetUsersResponse userResponse = await api.Helix.Users.GetUsersAsync(logins: new() { username });
+                foreach (TwitchLib.Api.Helix.Models.Users.GetUsers.User? user in userResponse.Users)
                 {
-                    return user.Id;
+                    if (user != null)
+                    {
+                        return user.Id;
+                    }
                 }
+
+            }
+            catch (Exception ex)
+            {
+                return null;
             }
 
             return null;
         }
 
         /// <summary>
+        /// Filter user by channel ids
+        /// </summary>
+        /// <param name="channel"></param>
+        /// <returns></returns>
+        public List<User> FilterUsersByChannel(Channel channel)
+        {
+            return users.FindAll(user => user.channelIds.Contains(channel.channelId));
+        }
+
+        /// <summary>
         /// Returns the top 5 users in points
         /// </summary>
-        public List<User> GetTopPoints()
+        public List<User> GetTopPoints(Channel channel, bool useGlobalRankings)
         {
-            List<User> ordered = users.OrderByDescending(user => user.points).ToList();
-            return ordered.GetRange(0,5);
+            
+            List<User> ordered = (useGlobalRankings ? users : FilterUsersByChannel(channel)).OrderByDescending(user => user.points).ToList();
+            return ordered.GetRange(0,5 > ordered.Count ? ordered.Count : 5);
+        }
+
+        /// <summary>
+        /// Returns the top 5 users in !poof counts
+        /// </summary>
+        public List<User> GetTopPoofs(Channel channel, bool useGlobalRankings)
+        {
+            List<User> ordered = (useGlobalRankings ? users : FilterUsersByChannel(channel)).OrderByDescending(user => user.poofCount).ToList();
+            return ordered.GetRange(0, 5 > ordered.Count ? ordered.Count : 5);
         }
 
         /// <summary>
         /// Returns the top 5 users in point loss
         /// </summary>
-        public List<User> GetTopLosers()
+        public List<User> GetTopLosers(Channel channel, bool useGlobalRankings)
         {
-            List<User> ordered = users.OrderByDescending(user => user.pointLoss).ToList();
-            return ordered.GetRange(0, 5);
+            List<User> ordered = (useGlobalRankings ? users : FilterUsersByChannel(channel)).OrderByDescending(user => user.pointLoss).ToList();
+            return ordered.GetRange(0, 5 > ordered.Count ? ordered.Count : 5);
         }
 
         /// <summary>
         /// Returns point rank of the user
         /// </summary>
-        public int GetUserPointRank(User user)
+        public int GetUserPointRank(User user, Channel channel, bool useGlobalRankings)
         {
-            List<User> ordered = users.OrderByDescending(user => user.points).ToList();
+            List<User> ordered = (useGlobalRankings ? users : FilterUsersByChannel(channel)).OrderByDescending(user => user.points).ToList();
             return ordered.IndexOf(user);
         }
 
         /// <summary>
         /// Returns point loss rank of the user
         /// </summary>
-        public int GetUserPointLossRank(User user)
+        public int GetUserPointLossRank(User user, Channel channel, bool useGlobalRankings)
         {
-            List<User> ordered = users.OrderByDescending(user => user.pointLoss).ToList();
+            List<User> ordered = (useGlobalRankings ? users : FilterUsersByChannel(channel)).OrderByDescending(user => user.pointLoss).ToList();
             return ordered.IndexOf(user);
+        }
+
+        /// <summary>
+        /// Returns point loss rank of the user
+        /// </summary>
+        /// 
+        public int GetUserPoofRank(User user, Channel channel, bool useGlobalRankings)
+        {
+            List<User> ordered = (useGlobalRankings ? users : FilterUsersByChannel(channel)).OrderByDescending(user => user.poofCount).ToList();
+            return ordered.IndexOf(user);
+        }
+
+        /// <summary>
+        /// gives all users x points
+        /// </summary>
+        /// <param name="points"></param>
+        public void GiveAll(int points)
+        {
+            foreach (User user in users)
+            {
+                user.AddPoints(points);
+            }
         }
     }
 }

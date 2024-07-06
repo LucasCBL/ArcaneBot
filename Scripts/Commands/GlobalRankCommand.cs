@@ -8,10 +8,10 @@ namespace TwitchBot.Scripts.Commands
     /// <summary>
     /// Returns the top 5 users in the points leaderboard
     /// </summary>
-    public class RankCommand : BaseCommand
+    public class GlobalRankCommand : BaseCommand
     {
         /// <inheritdoc/>
-        public override string CommandKey => "rank";
+        public override string CommandKey => "globalrank";
         /// <inheritdoc/>
         public override int MinArgs => 0;
         /// <inheritdoc/>
@@ -26,7 +26,7 @@ namespace TwitchBot.Scripts.Commands
         /// </summary>
         private UserDatabase database;
 
-        public RankCommand(UserDatabase database)
+        public GlobalRankCommand(UserDatabase database)
         {
             this.database = database;
         }
@@ -43,14 +43,14 @@ namespace TwitchBot.Scripts.Commands
                     targetUser = argUser;
             }
 
-            string rankingMessage = "Local Point rank: " + (database.GetUserPointRank(targetUser, channel, false) + 1) + " (" + targetUser.points+ "). ";
-            rankingMessage += "Local Point loss rank: " + (database.GetUserPointLossRank(targetUser, channel, false) + 1) + " (" + targetUser.pointLoss + "). ";
-            rankingMessage += "Local !poof rank: " + (database.GetUserPoofRank(targetUser, channel, false) + 1) + " (" + targetUser.poofCount + "). ";
+            string rankingMessage = "Global Point rank: " + (database.GetUserPointRank(targetUser, channel, true) + 1) + " (" + targetUser.points+ "). ";
+            rankingMessage += "Global Point loss rank: " + (database.GetUserPointLossRank(targetUser, channel, true) + 1) + " (" + targetUser.pointLoss + "). ";
+            rankingMessage += "Global !poof rank: " + (database.GetUserPoofRank(targetUser, channel, true) + 1) + " (" + targetUser.poofCount + "). ";
             channel.SendMessage(rankingMessage);
         }
 
         /// <inheritdoc/>
-        protected override string GetDescription(Channel channel) => $"use {channel.commandCharacter}rank to check your current local ranking (compared against anyone who has chatted in this chat), and {channel.commandCharacter}rank <user> to check another users ranking.";
+        protected override string GetDescription(Channel channel) => $"use {channel.commandCharacter}globalRank to check your current Global ranking( Across all servers using this bot ), and {channel.commandCharacter}globalRank <user> to check another users ranking.";
 
     }
 }

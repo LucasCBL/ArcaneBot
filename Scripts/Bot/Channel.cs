@@ -1,4 +1,5 @@
 ﻿using TwitchBot.Scripts.Games;
+using TwitchBot.Scripts.Users;
 using TwitchBot.Scripts.Utils;
 using TwitchLib.Client;
 using TwitchLib.Client.Events;
@@ -8,31 +9,44 @@ namespace TwitchBot.Scripts.Bot
 {
     public class Channel
     {
+        /// <summary> max amount of characters per message </summary>
+        public const int CharacterLimit = 500;
         /// <summary> Twitch channel name </summary>
-        public string channelName;
+        public string channelName { get; set; }
+        /// <summary> Twitch channel name </summary>
+        public string channelId { get; set; }
         /// <summary> allows channel to override default ! character to invoke commands </summary>
-        public char commandCharacter = '#';
+        public char commandCharacter { get; set; } = '#';
         /// <summary> offline status </summary>
         public bool isOffline = true;
         /// <summary> Twitch Client, handles all channel interactions </summary>
         public TwitchClient client;
         /// <summary> game list </summary>
         private List<BaseGame> games = new();
-        /// <summary> max amount of characters per message </summary>
-        public const int CharacterLimit = 500;
+        /// <summary> Amount of time needed before user is able to use a command again</summary>
+        public float commandCooldown { get; set; } = 2f;
         /// <summary> Min time between messages in current channel, expressed in ms </summary>
         public const int chatDelay = 500;
+        /// <summary> Whether or not games are currently enabled in this channel, this is a configuration </summary>
+        public bool gamesDisabled { get; set; } = false;
+        /// <summary> Whether or not games are currently enabled in this channel, this value is temporary, not a config</summary>
+        public bool gamesEnabled = true;
 
 
+        float totalRating = 0;
+        List<User> ratedBy = new();
+        DateTime lastRating = DateTime.Now;
+        CancellationTokenSource ratingCancelToken = new();
         /// <summary>
         /// Constructor
         /// </summary>
         /// <param name="client"></param>
         /// <param name="channelName"></param>
-        public Channel( TwitchClient client, string channelName)
+        public Channel( TwitchClient client, string channelName, string channelId)
         {
             this.channelName = channelName;
             this.client = client;
+            this.channelId = channelId;
             SetupClient();
         }
 
@@ -125,5 +139,35 @@ namespace TwitchBot.Scripts.Bot
         /// </summary>
         /// <param name="game"></param>
         public void AddGame(BaseGame game) => games.Add(game);
+
+        internal void RatingHandler(float rating, User user)
+        {
+            if ((DateTime.Now - lastRating).Seconds > 15)
+            {
+                totalRating = rating;
+                ratedBy.Clear();
+                ratedBy.Add(user);
+            } 
+            else if(ratedBy.Contains(user))
+            {
+                return;
+            }
+            else
+            {   
+                totalRating += rating;
+                ratedBy.Add(user);
+            }
+
+            ratingCancelToken.Cancel();
+            ratingCancelToken = new();
+            lastRating = DateTime.Now;
+            if (ratedBy.Count >= 3)
+                TimerUtils.StartTimedAction(20, UpdateRating, ratingCancelToken.Token);
+        }
+
+        public void UpdateRating()
+        {
+            SendMessage("A total of " + ratedBy.Count + " users have rated this segment. Rating score: " + (totalRating / ratedBy.Count) + "/10");
+        }
     }
 }

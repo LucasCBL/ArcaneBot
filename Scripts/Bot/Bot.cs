@@ -9,16 +9,14 @@ using TwitchLib.Client.Models;
 using TwitchLib.Client;
 using TwitchLib.Communication.Clients;
 using TwitchLib.Communication.Models;
-using TwitchLib.Api.Helix.Models.Users.GetUsers;
 using Stream = TwitchLib.Api.Helix.Models.Streams.GetStreams.Stream;
 using TwitchBot.Scripts.Commands;
 using TwitchBot.Scripts.Games;
 using TwitchBot.Scripts.Users;
 using User = TwitchBot.Scripts.Users.User;
 using TwitchBot.Scripts.Utils;
-using TwitchLib.Api.Helix.Models.Moderation.CheckAutoModStatus;
 using TwitchBot.Scripts.Games.GameUtils;
-using System.Windows.Input;
+using TwitchLib.Communication.Interfaces;
 
 namespace TwitchBot.Scripts.Bot
 {
@@ -27,10 +25,18 @@ namespace TwitchBot.Scripts.Bot
     /// </summary>
     class Bot
     {
-        ///<summary> Help intro constant </summary>
-        private const string helpIntro = "The commands enabled in this channel are: ";
-
         // ---------- Constants -------------
+        private const string helpIntro = "The commands enabled in this channel are: ";
+        private const string bannedWordReply = "Something in you message was identified as a possible slur, please contact a mod or the bot administrator for an explanation if this is a mistake";
+        private const string commandCalledMessage = "command called: ";
+        private const string poof = "!poof";
+        private const string commandNotFound = "command was not found or not compatible with current channel state";
+        private const string modCommandsIntro = "Mod commands are: ";
+        private List<string> helpCommandAliases = new() { "help", "h" };
+        private List<string> bannedUsers = new() { "fossabot" };
+
+        ///<summary> Embezzle command constant </summary>
+        private readonly string[] embezzleResponses = { "im not blammo PogO", "no elbyStare", "no elbyGun", "get a job elbySMH" };
         /// <summary> Bot username </summary>
         private string username;
         /// <summary> Bot user ID </summary>
@@ -42,17 +48,24 @@ namespace TwitchBot.Scripts.Bot
         /// <summary> Channels that the bot will listen to </summary>
         private List<string> channelNames;
 
+        // TODO: Create channel config files to allow for individual channel commands / games
+        /// <summary> Channels that the bot will listen to </summary>
+        private List<string> channelIDs;
+
         /// <summary> Channel storage </summary>
         private Dictionary<string, Channel> channels = new();
 
         /// <summary> Database for the bot </summary>
         private UserDatabase database;
 
-        /// <summary> Database for the bot </summary>
+        /// <summary> Database for the scramble game </summary>
         private GameDatabase<string> scrambleDatabase;
 
-        /// <summary> Database for the bot </summary>
+        /// <summary> Database for the trivia game </summary>
         private GameDatabase<Trivia> triviaDatabase;
+
+        /// <summary> Database for the riddle game </summary>
+        private GameDatabase<Riddle> riddleDatabase;
 
         /// <summary> Whether the bot is connected to twitch or not </summary>
         private bool isConnected = false;
@@ -70,36 +83,160 @@ namespace TwitchBot.Scripts.Bot
         /// <summary>
         /// Constructor
         /// </summary>
-        public Bot(string username, string botID, string botAccessToken, List<string> channelNames, string databasePath, string scrambleDatabasePath, string triviaDatabasePath)
+        public Bot(string username, string botID, string botAccessToken, List<string> channelIDs, string databasePath, string scrambleDatabasePath, string triviaDatabasePath, string riddleDatabasePath)
         {
             this.username = username;
             this.botID = botID;
             this.botAccessToken = botAccessToken;
-            this.channelNames = channelNames;
+            this.channelIDs = channelIDs;
             using ILoggerFactory factory = LoggerFactory.Create(builder => builder.AddConsole());
             tokenSource = new CancellationTokenSource();
-            // We set up the client to listen and write to the channel chat
-            SetUpClient(factory);
 
             // We setup api, task is discarded because we dont want to wait for result;
-            _ = SetupApi(factory);
+            SetupApi(factory);
+            InitializeDatabases(databasePath, scrambleDatabasePath, triviaDatabasePath, riddleDatabasePath);
+            // We set up the client to listen and write to the channel chat
+            TwitchClient client = SetUpClient(factory);
 
+            InitializeChannels(client);
+            InitializeCommands();
+            AutoSaveLoop(200000, tokenSource.Token);
+        }
+
+        /// <summary>
+        /// Initializes channels
+        /// </summary>
+        /// <param name="client"></param>
+        private async void InitializeChannels(TwitchClient client)
+        {
+            // Wait until client is connected
+            while (!isConnected)
+                await Task.Delay(1000);
+
+            // we add client to each channel
+            foreach (string channelID in channelIDs)
+            {
+                string channelName = database.FindUserByID(channelID).name.ToLower();
+                channels[channelName] = new(client, channelName, channelID);
+                AddGames(channels[channelName]);
+            }
+
+            OnlineStreamsCheck();
+        }
+
+        /// <summary>
+        /// Initializes channels
+        /// </summary>
+        /// <param name="client"></param>
+        private void InitializeChannel(TwitchClient client, string channelID)
+        {
+            string channelName = database.FindUserByID(channelID).name.ToLower();
+            channels[channelName] = new(client, channelName, channelID);
+            AddGames(channels[channelName]);
+        }
+
+        /// <summary>
+        /// Gives all users poitns
+        /// </summary>
+        /// <param name="points"></param>
+        public void GiveAll(int points)
+        {
+            database.GiveAll(points);
+        }
+
+        /// <summary>
+        /// Sets up the client to allow us to chat
+        /// </summary>
+        private TwitchClient SetUpClient(ILoggerFactory factory)
+        {
+            ConnectionCredentials credentials = new ConnectionCredentials(username, botAccessToken);
+            ClientOptions clientOptions = new();
+            WebSocketClient customClient = new WebSocketClient(clientOptions);
+#if DEBUG_MODE
+            TwitchClient client = new TwitchClient(customClient, ClientProtocol.WebSocket, logger: factory.CreateLogger<TwitchClient>());
+#else
+            TwitchClient client = new TwitchClient(customClient, ClientProtocol.WebSocket);
+#endif
+            // we initialize the clien
+            client.Initialize(credentials);
+            client.Connect();
+            client.OnMessageReceived += OnMessageReceived;
+            client.OnJoinedChannel += OnJoinedChannel;
+            client.OnConnected += OnConnected;
+            return client;
+        }
+
+        /// <summary>
+        /// Sets up the twitch api that allows us to check channel status
+        /// </summary>
+        /// <param name="factory"></param>
+        /// <returns></returns>
+        private void SetupApi(ILoggerFactory factory)
+        {
+#if DEBUG_MODE
+            api = new(loggerFactory: factory);
+#else
+            api = new();
+#endif
+            api.Settings.ClientId = botID;
+            api.Settings.AccessToken = botAccessToken;
+
+            LiveStreamMonitorService monitorService = new(api);
+            monitorService.SetChannelsById(channelIDs);
+            monitorService.Start();
+            // We add listeners for changes to stream state
+            monitorService.OnStreamUpdate += UpdateStreamsOnlineStatus;
+            monitorService.OnStreamOffline += ApiOnStreamOffline;
+            monitorService.OnStreamOnline -= ApiOnStreamOnline;
+        }
+
+        /// <summary>
+        /// Initializes all databases
+        /// </summary>
+        /// <param name="databasePath"></param>
+        /// <param name="scrambleDatabasePath"></param>
+        /// <param name="triviaDatabasePath"></param>
+        /// <param name="riddleDatabasePath"></param>
+        private void InitializeDatabases(string databasePath, string scrambleDatabasePath, string triviaDatabasePath, string riddleDatabasePath)
+        {
             database = UserDatabase.LoadDatabase(api, databasePath);
             scrambleDatabase = GameDatabase<string>.LoadDatabase(scrambleDatabasePath);
             triviaDatabase = GameDatabase<Trivia>.LoadDatabase(triviaDatabasePath);
+            riddleDatabase = GameDatabase<Riddle>.LoadDatabase(riddleDatabasePath);
+        }
 
-            AddCommand(new RatDetectionCommand());
-            AddCommand(new RouletteCommand());
-            AddCommand(new GameCommand<CoinGame>("coingame"));
-            AddCommand(new GameCommand<ScrambleGame>("scramble"));
-            AddCommand(new GameCommand<TriviaGame>("trivia"));
-            AddCommand(new PointsCommand(database));
-            AddCommand(new GivePointsCommand(database));
-            AddCommand(new PoofCountCommand(database));
-            AddCommand(new TopCommand(database));
-            AddCommand(new TopLosersCommand(database));
-            AddCommand(new RankCommand(database));
-            AutoSaveLoop(200000, tokenSource.Token);
+        /// <summary>
+        /// Initializesa all commands
+        /// </summary>
+        private void InitializeCommands()
+        {
+            commands.Add(new RatDetectionCommand());
+            commands.Add(new RouletteCommand());
+            commands.Add(new GameCommand<CoinGame>("coingame"));
+            commands.Add(new GameCommand<ScrambleGame>("scramble", new[]{ "scramba", "scrabble" }));
+            commands.Add(new GameCommand<TriviaGame>("trivia"));
+            commands.Add(new GameCommand<RiddleGame>("riddle"));
+            commands.Add(new PointsCommand(database));
+            commands.Add(new GivePointsCommand(database));
+            commands.Add(new PoofCountCommand(database));
+            commands.Add(new TopCommand(database));
+            commands.Add(new TopLosersCommand(database));
+            commands.Add(new RankCommand(database));
+            commands.Add(new GlobalRankCommand(database));
+            commands.Add(new TopPoofCommand(database));
+            commands.Add(new TextCommand("embezzle", embezzleResponses));
+        }
+
+        /// <summary>
+        /// Adds all games to each channel
+        /// </summary>
+        /// <param name="channel"></param>
+        private void AddGames(Channel channel)
+        {
+            channel.AddGame(new CoinGame(channel.SendMessage, database));
+            channel.AddGame(new ScrambleGame(channel.SendMessage, database, scrambleDatabase));
+            channel.AddGame(new TriviaGame(channel.SendMessage, database, triviaDatabase));
+            channel.AddGame(new RiddleGame(channel.SendMessage, database, riddleDatabase));
         }
 
         /// <summary>
@@ -117,15 +254,6 @@ namespace TwitchBot.Scripts.Bot
         }
 
         /// <summary>
-        /// Adds an active command to the bot.
-        /// </summary>
-        /// <param name="command"></param>
-        public void AddCommand(IBotCommand command)
-        {
-            commands.Add(command);
-        }
-
-        /// <summary>
         /// Cancels the bot processes and saves everything
         /// </summary>
         public void StopBot()
@@ -140,33 +268,6 @@ namespace TwitchBot.Scripts.Bot
         public void Save()
         {
             database.SaveDatabase();
-        }
-
-        /// <summary>
-        /// Sets up the client to allow us to chat
-        /// </summary>
-        private async void SetUpClient(ILoggerFactory factory)
-        {
-            ConnectionCredentials credentials = new ConnectionCredentials(username, botAccessToken);
-            ClientOptions clientOptions = new();
-            WebSocketClient customClient = new WebSocketClient(clientOptions);
-            TwitchClient client = new TwitchClient(customClient, ClientProtocol.WebSocket/*, logger: factory.CreateLogger<TwitchClient>()*/);
-            client.Initialize(credentials);
-            client.Connect();
-            client.OnMessageReceived += OnMessageReceived;
-            client.OnJoinedChannel += OnJoinedChannel;// We initialize channels
-            client.OnConnected += OnConnected;
-            while(!isConnected)
-                await Task.Delay(1000);
-
-            foreach (string channel in channelNames) {
-                channels[channel] = new(client, channel);
-                channels[channel].AddGame(new CoinGame(channels[channel].SendMessage, database));
-                channels[channel].AddGame(new ScrambleGame(channels[channel].SendMessage, database, scrambleDatabase));
-                channels[channel].AddGame(new TriviaGame(channels[channel].SendMessage, database, triviaDatabase));
-            }
-
-            OnlineStreamsCheck();
         }
 
         /// <summary>
@@ -190,26 +291,6 @@ namespace TwitchBot.Scripts.Bot
         }
 
         /// <summary>
-        /// Sets up the twitch api that allows us to check channel status
-        /// </summary>
-        /// <param name="factory"></param>
-        /// <returns></returns>
-        private async Task SetupApi(ILoggerFactory factory)
-        {
-            api = new(loggerFactory: factory);
-            api.Settings.ClientId = botID;
-            api.Settings.AccessToken = botAccessToken;
-
-            LiveStreamMonitorService monitorService = new(api);
-            monitorService.SetChannelsByName(channelNames);
-            monitorService.Start();
-            // We add listeners for changes to stream state
-            monitorService.OnStreamUpdate += UpdateStreamsOnlineStatus;
-            monitorService.OnStreamOffline += ApiOnStreamOffline;
-            monitorService.OnStreamOnline -= ApiOnStreamOnline;
-        }
-
-        /// <summary>
         /// 
         /// </summary>
         /// <param name="sender"></param>
@@ -217,8 +298,8 @@ namespace TwitchBot.Scripts.Bot
         /// <exception cref="NotImplementedException"></exception>
         private void UpdateStreamsOnlineStatus(object? sender, OnStreamUpdateArgs args)
         {
-            Console.WriteLine(" ---------------------- updating channel info: " + args.Channel + " -----------------------");
-            channels[args.Channel.ToLower()].isOffline = false;
+            Console.WriteLine(" ---------------------- updating channel info: " + args.Stream.UserName + " -----------------------");
+            channels[args.Stream.UserName.ToLower()].isOffline = false;
         }
 
         /// <summary>
@@ -228,8 +309,8 @@ namespace TwitchBot.Scripts.Bot
         /// <param name="args"></param>
         private void ApiOnStreamOffline(object source, OnStreamOfflineArgs args)
         {
-            Console.WriteLine("--------- " + args.Channel + "is now offline -------------------------");
-            channels[args.Channel.ToLower()].isOffline = true;
+            Console.WriteLine("--------- " + args.Stream.UserName + "is now offline -------------------------");
+            channels[args.Stream.UserName.ToLower()].isOffline = true;
         }
 
         /// <summary>
@@ -239,7 +320,7 @@ namespace TwitchBot.Scripts.Bot
         /// <param name="args"></param>
         private void ApiOnStreamOnline(object source, OnStreamOnlineArgs args)
         {
-            Console.WriteLine("--------- " + args.Channel + " is now online --------------");
+            Console.WriteLine("--------- " + args.Stream.UserName + " is now online --------------");
             channels[args.Channel.ToLower()].isOffline = false;
         }
 
@@ -249,7 +330,7 @@ namespace TwitchBot.Scripts.Bot
         /// <returns></returns>
         public async void OnlineStreamsCheck()
         {
-            GetStreamsResponse streams = await api.Helix.Streams.GetStreamsAsync(userIds: channelNames, userLogins: channelNames);
+            GetStreamsResponse streams = await api.Helix.Streams.GetStreamsAsync(userIds: channelIDs);
            
             foreach (string channel in channels.Keys)
                 channels[channel].isOffline = true;
@@ -259,9 +340,8 @@ namespace TwitchBot.Scripts.Bot
                 channels[onlineStream.UserName.ToLower()].isOffline = false;
         }
 
-        
         /// <summary>
-        /// 
+        /// Event called when a message is received on any of teh active channels
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
@@ -269,22 +349,49 @@ namespace TwitchBot.Scripts.Bot
         {
             Channel channel = channels[e.ChatMessage.Channel.ToLower()];
             User user = database.FindOrAddUserByID(e.ChatMessage.UserId, e.ChatMessage.Username);
+            if (!user.channelIds.Contains(channel.channelId))
+                user.channelIds.Add(channel.channelId);
+
             string message = e.ChatMessage.Message;
+            string[] args = StringUtils.SplitCommand(message);
+
+            if (TryGetRating(args, out float rating))
+            {
+                channel.RatingHandler(rating, user);
+            }
+            // Anti embezzling measure 
+            if (bannedUsers.Contains(user.name.ToLower()))
+                return;
 
             // if message is a poof call we increment the pof counter
-            if (message == "!poof")
+            if (message == poof)
                 user.poofCount++;
 
             // Command handling
             if (message[0] == channel.commandCharacter)
             {
-                string[] args = StringUtils.SplitCommand(message[1..]);
+                if ((DateTime.Now - user.lastCommand).TotalSeconds < channel.commandCooldown)
+                    return;
+
+
+                args = StringUtils.SplitCommand(message[1..]);
+
+                // if there is no arg we return
                 if (args.Length == 0)
                     return;
-                string commandKey = args[0].ToLower();
-                Console.WriteLine("command called: " + message);
+                
+                // check the input for banned words such as slurs
+                if(StringUtils.ContainsBannedWord(args))
+                {
+                    channel.SendReply(bannedWordReply, e.ChatMessage);
+                    return;
+                }
 
-                if (commandKey == "help")
+                string commandKey = args[0].ToLower();
+                Console.WriteLine(commandCalledMessage + DateTime.Now.ToString() + " " + user.name + ": " +  message + " --- Channel: " + channel.channelName );
+
+                // Help command
+                if (helpCommandAliases.Contains(commandKey))
                 {
                     Help(channel, user, e.ChatMessage);
                     return;
@@ -295,13 +402,16 @@ namespace TwitchBot.Scripts.Bot
                 // If no command is found we return
                 if (calledCommand is null || (!channel.isOffline && !calledCommand.IsOnlineCommand))
                 {
-                    Console.WriteLine("command was not found or not compatible with current channel state");
+                    Console.WriteLine(commandNotFound);
                     return;
                 }
 
                 // call command if args are correct, send help info message otherwise
                 if (args.Length > calledCommand.MinArgs)
+                {
+                    user.lastCommand = DateTime.Now;
                     calledCommand.Execute(user, channel, e.ChatMessage);
+                }
                 else
                     channel.SendReply(calledCommand.HelpInfo(channel), e.ChatMessage);
             }
@@ -344,11 +454,11 @@ namespace TwitchBot.Scripts.Bot
             // Mod exclusive command list
             if(modHelp)
             {
-                string modCommandsMessage = "Mod commands are: ";
+                string modCommandsMessage = modCommandsIntro;
                 for (int i = 1; i < commands.Count; i++)
                     if (commands[i].IsModeratorCommand)
                         modCommandsMessage += " " + commands[i].CommandKey + ",";
-
+                modCommandsMessage += " The bot is still in development, currently there is no mod commands, since bot customization has not been implemented yet, for any help or questions please whisper socialistWizard on twitch.";
                 modCommandsMessage = modCommandsMessage.Remove(modCommandsMessage.Length - 1);
                 channel.SendReply(modCommandsMessage, message);
                 return;
@@ -372,7 +482,7 @@ namespace TwitchBot.Scripts.Bot
             // TODO: once channel preference system is implemented update this
             for (int i = 0; i < commands.Count; i++)
             {
-                if (!commands[i].IsModeratorCommand || (!channel.isOffline && !commands[i].IsOnlineCommand))
+                if (!commands[i].IsModeratorCommand && (channel.isOffline || commands[i].IsOnlineCommand))
                     helpMessage += " " + commands[i].CommandKey + ",";
             }
             helpMessage = helpMessage.Remove(helpMessage.Length - 1);
@@ -394,6 +504,21 @@ namespace TwitchBot.Scripts.Bot
         }
 
         /// <summary>
+        /// returns rating
+        /// </summary>
+        /// <returns></returns>
+        public bool TryGetRating(string[] input, out float rating)
+        {
+            rating = 0;
+            foreach(string inputItem in input)
+            {
+                if (inputItem.EndsWith("/10") && float.TryParse(inputItem.Replace("/10", ""), out rating) && (rating >= 0) && (rating <= 10))
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
         /// Reloads all databases to reflect manual changes
         /// </summary>
         /// <exception cref="NotImplementedException"></exception>
@@ -402,6 +527,16 @@ namespace TwitchBot.Scripts.Bot
             database.ReloadDatabase();
             scrambleDatabase.ReloadDatabase();
             triviaDatabase.ReloadDatabase();
+        }
+
+        /// <summary>
+        /// Returns the user id associated with an user
+        /// </summary>
+        /// <param name="userName"></param>
+        /// <returns></returns>
+        internal async Task<string> GetUserID(string userName)
+        {
+            return await database.GetUserId(userName);
         }
     }
 }

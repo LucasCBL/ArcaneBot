@@ -37,7 +37,7 @@ namespace TwitchBot.Scripts.Commands
             if (MathUtils.RandomNumber(0, 100) < 20)
                 channel.SendMessage(content + " IS A SECRET RAT SCATTER");
             else
-                channel.SendMessage(content + " is not a secret rat OKAY");
+                channel.SendMessage(content + " is not a secret rat elbySlay");
         }
     }
 }

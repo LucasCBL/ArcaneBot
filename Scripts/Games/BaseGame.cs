@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Threading.Channels;
 using TwitchBot.Scripts.Users;
+using TwitchBot.Scripts.Utils;
 using TwitchLib.Client.Models;
 
 namespace TwitchBot.Scripts.Games
@@ -90,17 +91,9 @@ namespace TwitchBot.Scripts.Games
         /// <param name="warning"> Message displayed by the bot after timer ends </param>
         /// <param name="timer"> Time before warning is displayed, in seconds </param>
         /// <param name="token"></param>
-        public async void StartTimedWarning(string warning, int timer, CancellationToken token)
+        public void StartTimedWarning(string warning, int timer, CancellationToken token)
         {
-            // We wait for max duration before cancelling game
-            await Task.Delay(1000 * timer);
-
-            // If cancelled we return
-            if (token.IsCancellationRequested)
-                return;
-
-            // Sends warning message after timer expires
-            SendMessage(warning);
+            TimerUtils.StartTimedAction(timer, () => SendMessage(warning), token);
         }
 
         /// <summary>
@@ -116,16 +109,9 @@ namespace TwitchBot.Scripts.Games
         /// Starts the cancel procedure
         /// </summary>
         /// <param name="token"></param>
-        public async void StartTimedCancel(CancellationToken token)
+        public void StartTimedCancel(CancellationToken token)
         {
-            // We wait for max duration before cancelling game
-            await Task.Delay(1000 * maxDuration);
-            
-            // Return if game instance is cancelled
-            if (token.IsCancellationRequested)
-                return;
-
-            CancelGame();
+            TimerUtils.StartTimedAction(maxDuration, CancelGame, token);
         }
     }
 }

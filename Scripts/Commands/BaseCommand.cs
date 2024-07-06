@@ -44,7 +44,9 @@ namespace TwitchBot.Scripts.Commands
         /// <inheritdoc/>
         public string HelpInfo(Channel channel)
         {
-            return GetDescription(channel) + ". Aliases: " + StringUtils.GetString(GetAliases(channel));
+            string aliasList = StringUtils.GetString(GetAliases(channel));
+            aliasList = aliasList.Length > 1 ? aliasList : "no aliases";
+            return GetDescription(channel) + ". Aliases: " + aliasList;
         }
     }
 }

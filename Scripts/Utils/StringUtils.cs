@@ -11,6 +11,9 @@ namespace TwitchBot.Scripts.Utils
     /// </summary>
     public static class StringUtils
     {
+        /// <summary> Database for the banned words, anything including these words should not be sent, this must be set manually</summary>
+        public static List<string> bannedWords = new();
+        
         /// <summary>
         /// Splits string in groups of maxCount characters
         /// </summary>
@@ -48,7 +51,7 @@ namespace TwitchBot.Scripts.Utils
         {
             string[] result = SplitCommand(input);
             if(result.Length < 2) {
-                Console.WriteLine("Error, emptu string in RemoveCommandFromString");
+                Console.WriteLine("Error, empty string in RemoveCommandFromString");
                 return null;
             }
             return input[result[0].Length..];
@@ -72,6 +75,38 @@ namespace TwitchBot.Scripts.Utils
 
             message = message.Remove(message.Length - 2);
             return message;
+        }
+
+        /// <summary>
+        /// This function checks whether the input contains any banned word, such as slurs
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public static bool ContainsBannedWord(IEnumerable<string> input)
+        {
+            // We must ensure that users do not get around the banned words by adding characters to them,
+            // there are cases that can be evaded, but these must be handled by the twitch channels themselves
+            foreach (string inputStr in input)
+                if(ContainsBannedWord(inputStr))
+                    return true;
+
+            return false;
+        }
+
+        /// <summary>
+        /// This function checks whether the input contains any banned word, such as slurs
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public static bool ContainsBannedWord(string input)
+        {
+            // We must ensure that users do not get around the banned words by adding characters to them,
+            // there are cases that can be evaded, but these must be handled by the twitch channels themselves
+            foreach (string bannedStr in bannedWords)
+                if (input.Contains(bannedStr))
+                    return true;
+
+            return false;
         }
     }
 }

@@ -23,6 +23,13 @@ namespace TwitchBot.Scripts.Users
         /// <summary> Amount of times a user has poofed </summary>
         public int poofCount { get; set; } = 0;
 
+        /// <summary> List of channels this user has been seen in (relevant to keep tops relatively isolated by channel) </summary>
+        public List<string> channelIds { get; set; } = new();
+
+        /// <summary> Last time user called a command, used to reduce spam </summary>
+        public DateTime lastCommand = DateTime.Now;
+
+
         /// <summary>
         /// Constructor
         /// </summary>
@@ -59,7 +66,7 @@ namespace TwitchBot.Scripts.Users
         {
             if (removedPoints < 0)
                 return;
-
+            pointLoss += gamblingLoss ? removedPoints : 0;
             points -= removedPoints;
         }
 

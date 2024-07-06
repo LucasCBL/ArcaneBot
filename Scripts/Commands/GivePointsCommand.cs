@@ -55,12 +55,12 @@ namespace TwitchBot.Scripts.Commands
             }
 
             // We check that the argument is in the correct format
-            if(int.TryParse(args[2], out int points))
+            if(int.TryParse(args[2], out int points) && points > 0)
             {
                 // Points check
                 if(gifter.points < points)
                 {
-                    channel.SendReply("Awkward you do not have enough points for this " + gifter.name + " you only have " + gifter.points + " points", message);
+                    channel.SendReply("elbyHmm you do not have enough points for this " + gifter.name + " you only have " + gifter.points + " points", message);
                     return;
                 }
 
@@ -70,7 +70,7 @@ namespace TwitchBot.Scripts.Commands
             }
 
             // if points format is incorrect
-            channel.SendReply("invalid arguments. " + HelpInfo, message);
+            channel.SendReply("invalid arguments. " + HelpInfo(channel), message);
         }
     }
 }

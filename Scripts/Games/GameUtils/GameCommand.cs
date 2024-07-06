@@ -54,6 +54,9 @@ namespace TwitchBot.Scripts.Games
         /// <param name="args"></param>
         public void Execute(User user, Channel channel, ChatMessage message)
         {
+            if (!channel.gamesEnabled)
+                return;
+
             BaseGame game = channel.GetGame<Game>();
             if (game.IsRunning)
             {

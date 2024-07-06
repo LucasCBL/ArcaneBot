@@ -40,6 +40,7 @@ namespace TwitchBot.Scripts.Commands
             int points = -1;
             string[] args = StringUtils.SplitCommand(message.Message);
             string bet = args[1].ToLower();
+            // Changes nothing as opposed to 0,1 random, but feels cooler this way shrug
             bool win = MathUtils.RandomNumber(0, 2) == 1;
             char lastChar = bet[^1]; 
             int userPoints = user.points;
@@ -68,7 +69,7 @@ namespace TwitchBot.Scripts.Commands
             }
 
             // message handling
-            string result = gameIntroMessage + GenerateResultMessage(user, userPoints, points, win);
+            string result = gameIntroMessage + GenerateResultMessage(user, channel, userPoints, points, win);
             channel.SendReply(result, message);
         }
 
@@ -79,14 +80,14 @@ namespace TwitchBot.Scripts.Commands
         /// <param name="points"></param>
         /// <param name="win"></param>
         /// <returns></returns>
-        private string GenerateResultMessage(User user,int userPoints, int points, bool win)
+        private string GenerateResultMessage(User user, Channel channel, int userPoints, int points, bool win)
         {
             if (points < 0)
-                return "invalid arguments. " + HelpInfo;
+                return "invalid arguments. " + HelpInfo(channel);
             else if (points > userPoints)
                 return "You do not have enough points PogO";
             else
-                return "You have " + (win ? $"won {points} points Pog " : $"lost {points} points PogO ") + "new balance: " + user.points;
+                return "You have " + (win ? $"won {points} points elbyBlom " : $"lost {points} points PogO ") + "new balance: " + user.points;
         }
     }
 }

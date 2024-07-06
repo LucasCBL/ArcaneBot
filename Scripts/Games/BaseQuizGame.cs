@@ -1,5 +1,7 @@
-﻿using TwitchBot.Scripts.Games.GameUtils;
+﻿using System;
+using TwitchBot.Scripts.Games.GameUtils;
 using TwitchBot.Scripts.Users;
+using TwitchBot.Scripts.Utils;
 using TwitchLib.Client.Models;
 
 namespace TwitchBot.Scripts.Games
@@ -9,7 +11,7 @@ namespace TwitchBot.Scripts.Games
     /// </summary>
     public abstract class BaseQuizGame<T> : BaseGame
     {
-        private const int hintTimer = 15;
+        protected int hintTimer = 15;
 
         /// <summary>  </summary>
         protected T activeData;
@@ -44,19 +46,35 @@ namespace TwitchBot.Scripts.Games
         public override void StartGame()
         {
             base.StartGame();
-
-            // Solution and question generation
-            activeData = gameData.GetRandomData();
-            solution = GetSolution(activeData);
-            SendMessage(GetQuestion(activeData));
+            GenerateData();
 
             // amount of displayed letters
-            int hintLenth = solution.Length > 5 ? 3 : 2;
+            int hintLenth = Math.Min(solution.Length - 1, (int)Math.Ceiling(solution.Length * 0.3));
             // we generate the hint 
             string hint = solution[..hintLenth] + new string('_', solution.Length - hintLenth);
             // message displayed if no one wind by the 15 second mark
-            StartTimedWarning($"hint: {hint}", BaseQuizGame<T>.hintTimer, cancellationTokenSource.Token);
+            StartTimedWarning($"hint: {hint}", hintTimer, cancellationTokenSource.Token);
 
+        }
+
+        /// <summary>
+        /// Generates the question, and the solution
+        /// </summary>
+        private void GenerateData()
+        {
+            // Solution and question generation
+            activeData = gameData.GetRandomData();
+            solution = GetSolution(activeData);
+            string question = GetQuestion(activeData);
+            string[] questionArgs = StringUtils.SplitCommand(question);
+            string[] solutionArgs = StringUtils.SplitCommand(solution);
+            // if question or answer contains a banned term we ignore it
+            if (StringUtils.ContainsBannedWord(questionArgs) || StringUtils.ContainsBannedWord(solutionArgs))
+            {
+                GenerateData();
+                return;
+            }
+            SendMessage(question);
         }
 
         /// <summary>
@@ -76,8 +94,10 @@ namespace TwitchBot.Scripts.Games
         /// <inheritdoc/>
         protected override void CheckInput(ChatMessage message)
         {
-            if(message.Message.ToLower().StartsWith(solution.ToLower())) {
-                SendMessage($"@{message.DisplayName} found the correct answer and won 10 points PogU The answer was {solution}");
+            string[] solutions = { solution.ToLower() , solution.StartsWith("The ") ? solution.Remove(0,4) : solution };
+            string guess = message.Message.ToLower();
+            if (guess.StartsWith(solutions[0]) || guess.StartsWith(solutions[1])) {
+                SendMessage($"@{message.DisplayName} found the correct answer and won " + prize + $" points PogU The answer was {solution}");
                 var user = database.FindUserByID(message.UserId);
                 user.AddPoints(prize);
                 EndGame();
